@@ -1,0 +1,48 @@
+# Secrets — never commit
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+.next/
+dist/
+build/
+
+# Audio is processed and discarded by design; nothing should land here, but
+# make sure a stray capture never gets committed.
+*.wav
+*.webm
+*.mp3
+media/
+
+# Local models and caches
+models/
+vosk-model-*/
+*.gguf
+*.bin
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# Generated at runtime: uploaded material, rendered PDFs, handover audio.
+data/materials/
+data/audio/
+data/*.pdf
+
+# The `models/` rule above is meant for the Vosk and LLM downloads at the repo
+# root, but it matches any directory of that name — including the vendored
+# MediaPipe face model, which has to ship so the interview works with no
+# internet. Keep that one.
+!frontend/public/mediapipe/
+!frontend/public/mediapipe/**

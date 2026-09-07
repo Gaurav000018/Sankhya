@@ -1,0 +1,28 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0.35
+psycopg[binary]>=3.2.0
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+email-validator>=2.2.0
+python-multipart>=0.0.12
+PyJWT>=2.9.0
+argon2-cffi>=23.1.0
+pyotp>=2.9.0
+qrcode[pil]>=8.0
+redis>=5.1.0
+pgvector>=0.3.0
+
+# Document text extraction. Pure Python and small, so it runs in the API
+# container; generation and embeddings need the model and run on the host.
+pypdf>=5.0.0
+python-docx>=1.1.0
+python-pptx>=1.0.0
+
+# Competency Evidence Report. Pure Python, no system libraries — unlike
+# weasyprint, which needs GTK on Windows.
+reportlab>=4.2.0
+
+# Schema migrations. Until this existed, any model change meant a reseed,
+# which destroys data.
+alembic>=1.13.0

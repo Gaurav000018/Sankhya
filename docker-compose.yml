@@ -1,0 +1,56 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: sankhya-db
+    environment:
+      POSTGRES_USER: sankhya
+      POSTGRES_PASSWORD: sankhya
+      POSTGRES_DB: sankhya
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sankhya -d sankhya"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: sankhya-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: sankhya-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://sankhya:sankhya@db:5432/sankhya
+      REDIS_URL: redis://redis:6379/0
+      # Ollama runs natively on the Windows host for GPU access, not in Compose.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      # Handover to the speech worker on the host. Recordings live here for the
+      # ~20 seconds analysis takes and are deleted immediately afterwards.
+      - ./data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  db_data:

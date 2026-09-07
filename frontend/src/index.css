@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* Institutional data-first palette: cool blueprint-paper neutrals, navy ink,
+   a single brass accent. Semantic colours are separate from the accent, so
+   "needs attention" never competes with "this is a link". */
+@theme {
+  /* Devanagari sits in the stack rather than in a separate rule: the two faces
+     are metric-companions, so mixed English/Hindi lines keep one baseline. */
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Devanagari", "Nirmala UI",
+    "Segoe UI", system-ui, sans-serif;
+  --font-serif: "IBM Plex Serif", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  --color-ground: #f1f3f6;
+  --color-surface: #ffffff;
+  --color-surface-2: #e9ecf1;
+  --color-ink: #14181f;
+  --color-ink-2: #4d5563;
+  /* Darkened from #7c8494, which failed AA on every ground it is used on.
+     It carries 10-12px labels and hints, so 4.5:1 applies. */
+  --color-ink-3: #626a7a;
+  --color-rule: #d8dce3;
+  /* Input and control borders are UI component boundaries: WCAG 1.4.11
+     wants 3:1, and #bfc5d0 managed 1.73:1. */
+  --color-rule-strong: #8a92a3;
+
+  --color-navy: #182033;
+  --color-accent: #3d5a9e;
+  --color-brass: #8a6614;
+
+  --color-critical: #9c3f36;
+  --color-warn: #a06a2c;
+  --color-near: #66754a;
+  --color-good: #2c6b48;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Digits line up in every table and stat tile. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Keyboard users land on the nav on every page load. This lets them jump past
+   it in one keystroke — WCAG 2.4.1 Bypass Blocks. Visible only on focus. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 2px solid var(--color-brass);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* Route changes move focus to the heading. Without this the ring reads as a
+   stray artefact rather than a deliberate landing point. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* Available to a screen reader, invisible on screen. Used for table captions
+   and any label that would be redundant visually but is needed for structure. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Devanagari carries more vertical detail than Latin; a little extra leading
+   stops matras colliding with the line above. */
+html[lang="hi"] body {
+  line-height: 1.7;
+}

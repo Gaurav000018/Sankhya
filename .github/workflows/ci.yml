@@ -1,0 +1,127 @@
+name: CI
+
+# Five verification scripts existed and nothing ran them automatically. This is
+# that. It deliberately runs the checks that encode a promise — WCAG contrast,
+# accessibility structure, translation integrity — alongside the tests, because
+# those are the ones most likely to rot quietly.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector, not plain postgres: the schema declares vector columns.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: sankhya
+          POSTGRES_PASSWORD: sankhya
+          POSTGRES_DB: sankhya
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sankhya -d sankhya"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://sankhya:sankhya@localhost:5432/sankhya
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-only-secret-long-enough-for-hmac-sha256
+      APP_ENV: dev
+      EMAIL_ENABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pytest httpx alembic
+
+      - name: Seed a database
+        working-directory: backend
+        run: python -m app.seed.seed
+
+      - name: Migrations build the schema from nothing
+        working-directory: backend
+        # This step used to run against the seeded database, which the seed
+        # builds with create_all from the models. Autogenerate then compared the
+        # models against a database made from those same models, so it always
+        # reported agreement — it passed for months while the initial migration's
+        # upgrade() was an empty `pass` and `alembic upgrade head` produced a
+        # database with no tables in it.
+        #
+        # So: a database nothing has touched, built only by migrations. If that
+        # fails, the migrations cannot deploy. If the autogenerate that follows
+        # is non-empty, a model changed without one.
+        env:
+          DATABASE_URL: postgresql+psycopg://sankhya:sankhya@localhost:5432/drift_check
+        run: |
+          PGPASSWORD=sankhya psql -h localhost -U sankhya -d postgres             -c "DROP DATABASE IF EXISTS drift_check;" -c "CREATE DATABASE drift_check;"
+          python -m alembic upgrade head
+          python -m alembic revision --autogenerate -m "ci drift check" >/dev/null
+          latest=$(ls -t migrations/versions/*.py | head -1)
+          if grep -qE "op\.(create|drop|add|alter)_" "$latest"; then
+            echo "Models have drifted from migrations:"
+            cat "$latest"
+            exit 1
+          fi
+          rm "$latest"
+
+      - name: Tests
+        working-directory: backend
+        run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc -b --noEmit
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  standards:
+    # These need neither a database nor node_modules — they read the source.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: WCAG 2.1 AA contrast
+        run: python scripts/check_contrast.py
+
+      - name: Accessibility structure
+        run: python scripts/check_a11y.py
+
+      - name: Translation integrity
+        run: python scripts/check_i18n.py

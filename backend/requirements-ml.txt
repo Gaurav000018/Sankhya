@@ -1,0 +1,23 @@
+# Speech pipeline. Installed on the HOST, not in the API image — Docker on
+# Windows cannot reach the RTX 4050 cleanly, and keeping these out of the
+# container keeps it small.
+#
+#   pip install -r requirements-ml.txt
+#
+# Deliberately no torch: faster-whisper uses CTranslate2, Vosk uses Kaldi, and
+# silero-vad has an ONNX build. Avoiding torch saves ~2.5 GB and the most common
+# source of CUDA version conflicts on Windows.
+
+faster-whisper>=1.0.0
+vosk>=0.3.45
+silero-vad>=5.1
+onnxruntime>=1.19.0
+praat-parselmouth>=0.4.4
+librosa>=0.10.0
+soundfile>=0.12.1
+
+# GPU support for CTranslate2 on Windows. Installing these as pip packages
+# avoids fighting the NVIDIA installer; without them faster-whisper fails on
+# CUDA with an opaque DLL error.
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
