@@ -95,6 +95,25 @@ cd backend && python -m pytest
 judge output handling, citation verification, the ranking signals, the promotion
 simulator, adaptive question selection and disclosure control in the analytics.
 
+#### Live speech analysis (optional)
+
+```bash
+python scripts/prepare_live_speech.py
+```
+
+Packages the Vosk model so it can run in the browser, giving the officer filler
+and pace feedback the moment they stop speaking rather than twenty seconds later
+when the server pass returns. It builds from the model the worker already uses —
+the Indian English one, because a US model reads ordinary Indian pronunciation
+as hesitation and this is the one platform that must not make that mistake.
+
+Recognition runs on the officer's machine. No audio is streamed for it, and the
+recorded answer is still measured server-side, which is what the report and the
+competency evidence are built from. Expect small differences between the live
+figure and the recorded one.
+
+Skip this and live analysis is simply off. Everything else behaves identically.
+
 ### The models, and what breaks them
 
 Three checks, each one because the thing it checks failed silently once:

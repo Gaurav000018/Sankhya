@@ -420,3 +420,24 @@ export interface FollowThrough {
   practice: { kind: string; title: string; detail: string }[];
   caveat: string;
 }
+
+/** Live speech measurements, computed in the browser during an answer. */
+export interface LiveSpeech {
+  words: number;
+  seconds: number;
+  wpm: number | null;
+  filler_count: number;
+  /** Per 100 words. Null until enough has been said for the ratio to mean anything. */
+  filler_rate: number | null;
+  long_pauses: number;
+  pace: "slow" | "steady" | "fast" | "unknown";
+  /** Seconds into the answer at which each filler landed. */
+  filler_times: number[];
+}
+
+/** One piece of immediate feedback shown after an answer. */
+export interface LiveTip {
+  tone: "good" | "neutral" | "attention";
+  headline: string;
+  detail: string;
+}

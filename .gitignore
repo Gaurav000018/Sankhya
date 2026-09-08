@@ -53,3 +53,8 @@ data/*.pdf
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Built by scripts/prepare_live_speech.py from the model in models/. Derived,
+# 37 MB, and identical to a file the setup already downloads — so it is
+# generated rather than committed.
+frontend/public/vosk/

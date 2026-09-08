@@ -13,9 +13,17 @@ import {
   type Axis,
 } from "../components/InterviewReport";
 import { Card, Empty, ErrorNote, Note, Spinner } from "../components/ui";
+import { LiveDebrief, LiveIndicator } from "../components/LiveSpeechPanel";
 import { useFaceMesh } from "../hooks/useFaceMesh";
+import { useLiveSpeech } from "../hooks/useLiveSpeech";
 import { useRecorder } from "../hooks/useRecorder";
-import type { Coaching, FollowThrough, FracRole, NextQuestion } from "../types";
+import type {
+  Coaching,
+  FollowThrough,
+  FracRole,
+  LiveSpeech,
+  NextQuestion,
+} from "../types";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 interface QuestionSlot {
@@ -90,6 +98,10 @@ export function Interview() {
   const [cameraWanted, setCameraWanted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const faceMesh = useFaceMesh();
+  const liveSpeech = useLiveSpeech();
+  // The last answer's live figures, kept after the recogniser stops so the
+  // debrief survives while the server pass runs.
+  const [lastLive, setLastLive] = useState<LiveSpeech | null>(null);
   const [attentionNote, setAttentionNote] = useState<string | null>(null);
   const [nextInfo, setNextInfo] = useState<NextQuestion | null>(null);
   const [followThrough, setFollowThrough] = useState<FollowThrough | null>(null);
@@ -120,6 +132,8 @@ export function Interview() {
         );
         setNextInfo(next);
         if (!next.done && next.answer_id !== null) {
+          setLastLive(null);
+          liveSpeech.reset();
           setActiveId(next.answer_id);
           await refresh(interviewId);
         } else {
@@ -133,7 +147,7 @@ export function Interview() {
         return null;
       }
     },
-    [refresh],
+    [refresh, liveSpeech],
   );
 
   /**
@@ -211,6 +225,7 @@ export function Interview() {
       setError(null);
       setProgress("Uploading…");
       faceMesh.stop();
+      setLastLive(liveSpeech.stop());
       try {
         const result = await api.uploadAnswerAudio(interview.interview_id, activeId, blob);
         void submitAttention(interview.interview_id, activeId, seconds);
@@ -231,7 +246,7 @@ export function Interview() {
         setBusy(false);
       }
     },
-    [activeId, interview, watchAnswer, faceMesh, submitAttention],
+    [activeId, interview, watchAnswer, faceMesh, liveSpeech, submitAttention],
   );
 
   const onStream = useCallback(
@@ -245,11 +260,21 @@ export function Interview() {
     [faceMesh],
   );
 
+  const handleStream = useCallback(
+    (stream: MediaStream) => {
+      onStream(stream);
+      // Same stream, no second microphone request, and no audio leaves the
+      // browser for this — recognition runs here.
+      liveSpeech.start(stream);
+    },
+    [onStream, liveSpeech],
+  );
+
   const recorder = useRecorder({
     maxSeconds: interview?.max_answer_seconds ?? 90,
     onComplete: handleRecorded,
     video: cameraWanted && faceMesh.supported !== false,
-    onStream,
+    onStream: handleStream,
   });
 
   async function begin() {
@@ -257,6 +282,10 @@ export function Interview() {
     setError(null);
     try {
       if (cameraWanted) await faceMesh.load();
+      // Loaded before the first question so the model download does not land in
+      // the middle of an answer. Optional: if it is not packaged, the interview
+      // runs exactly as it does without it.
+      void liveSpeech.load();
       const created = await api.post<Interview>("/interviews", {
         target_role_id: targetRoleId,
       });
@@ -580,6 +609,10 @@ export function Interview() {
             </div>
           </Card>
 
+          <div>
+            <LiveDebrief live={lastLive} />
+          </div>
+
           <Card title="Why you are being asked">
             <p className="text-[13px] leading-relaxed text-ink-2">
               Speech recognition has a higher error rate on Indian English and on mixed
@@ -690,6 +723,17 @@ export function Interview() {
             <p className="mb-3 text-[11.5px] leading-relaxed text-ink-2">{faceMesh.error}</p>
           )}
 
+          {liveSpeech.loading && (
+            <p className="mb-3 text-[11.5px] text-ink-3">
+              Loading the live speech model — this happens once.
+            </p>
+          )}
+          {liveSpeech.available === false && liveSpeech.error && (
+            <p className="mb-3 text-[11.5px] leading-relaxed text-ink-3">
+              {liveSpeech.error}
+            </p>
+          )}
+
           {recorder.state === "recording" ? (
             <>
               <div className="flex items-baseline gap-3">
@@ -699,6 +743,8 @@ export function Interview() {
                 </span>
                 <span className="text-xs text-ink-3">of {seconds(cap)}</span>
               </div>
+
+              <LiveIndicator live={liveSpeech.live} />
 
               <div className="mt-3 h-1.5 w-full bg-surface-2">
                 <div
