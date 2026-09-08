@@ -43,6 +43,7 @@ from app.schemas import (
     TranscriptCorrectionIn,
     UploadAcceptedOut,
 )
+from app.services.interview_followthrough import build_follow_through
 from app.services.interview import (
     InterviewError,
     advance,
@@ -478,3 +479,29 @@ def _attention_quality(face_present_ratio: float | None, frames: int) -> str:
     if face_present_ratio >= 0.35:
         return "partial"
     return "unusable"
+
+
+@router.get("/{interview_id}/follow-through")
+def interview_follow_through(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Courses, learning paths and practice, from what this interview found.
+
+    Available to the officer and to anyone who can already view the interview —
+    a supervisor discussing next steps with their officer is the point of it.
+    The camera block is redacted from the report this is built on, so nothing
+    derived from it can leak through here either.
+    """
+    interview = _load_interview(db, interview_id, user)
+    report = build_report(db, interview, viewer_id=user.id)
+    result = build_follow_through(
+        db, user=interview.user, interview=interview, report=report,
+    )
+    return {
+        "interview_id": interview.id,
+        "competencies": result.competencies,
+        "practice": result.practice,
+        "caveat": result.caveat,
+    }

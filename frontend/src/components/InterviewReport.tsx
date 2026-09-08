@@ -1,5 +1,5 @@
 import { Card, Empty, Note } from "./ui";
-import type { AttentionReport, Coaching } from "../types";
+import type { AttentionReport, Coaching, FollowThrough } from "../types";
 
 /**
  * The five-axis report.
@@ -450,6 +450,98 @@ export function AttentionPanel({ attention }: { attention: AttentionReport | nul
           </div>
         </>
       )}
+    </Card>
+  );
+}
+
+const PRACTICE_LABEL: Record<string, string> = {
+  recall: "Recall",
+  explain: "Explain",
+  drill: "Drill",
+  mock: "Mock interview",
+};
+
+/**
+ * What to do after the interview.
+ *
+ * Courses come from the same recommender the development plan uses — one
+ * ranking, whose input the interview changed. Two rankings would leave an
+ * officer with no way to know which to believe.
+ *
+ * The practice list is the part no course covers. Most of what an interview
+ * exposes is not a knowledge gap: it is that the officer knows the material and
+ * cannot yet explain it under time pressure, and booking three days of training
+ * for that wastes three days.
+ */
+export function FollowThroughPanel({ data }: { data: FollowThrough | null }) {
+  if (!data) return null;
+
+  return (
+    <Card title="What to do next" hint="Drawn from what this interview found">
+      {data.competencies.length > 0 && (
+        <div className="space-y-5">
+          {data.competencies.map((block) => (
+            <div key={block.competency_id}>
+              <h3 className="text-[13px] font-semibold">
+                {block.competency_name}
+                {block.current_level !== null && block.required_level !== null && (
+                  <span className="ml-2 font-normal text-[11.5px] text-ink-3">
+                    L{block.current_level.toFixed(1)} against L
+                    {block.required_level.toFixed(1)}
+                  </span>
+                )}
+              </h3>
+
+              {block.courses.length > 0 ? (
+                <ul className="mt-2 space-y-2">
+                  {block.courses.map((course) => (
+                    <li key={course.course_id} className="border-l-2 border-rule pl-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-[12.5px] font-medium">{course.title}</span>
+                        <span className="tabular shrink-0 font-mono text-[11px] text-ink-3">
+                          {course.duration_hours}h
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-2">
+                        {course.reason}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-warn">
+                  {block.note}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.practice.length > 0 && (
+        <div className="mt-6 border-t border-rule pt-5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
+            Practice — no booking needed
+          </h3>
+          <ul className="mt-2.5 space-y-3">
+            {data.practice.map((item, index) => (
+              <li key={index}>
+                <div className="flex items-baseline gap-2">
+                  <span className="shrink-0 border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-[0.05em] text-ink-3">
+                    {PRACTICE_LABEL[item.kind] ?? item.kind}
+                  </span>
+                  <span className="text-[12.5px] font-medium">{item.title}</span>
+                </div>
+                <p className="mt-1 text-[11.5px] leading-relaxed text-ink-2">
+                  {item.detail}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Note tone="brass">{data.caveat}</Note>
     </Card>
   );
 }

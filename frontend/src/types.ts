@@ -359,3 +359,64 @@ export interface Coaching {
   focus_competency_ids: number[];
   note: string;
 }
+
+/**
+ * A figure that may have been withheld.
+ *
+ * Small cohorts are suppressed rather than rounded: a mean over three officers
+ * is a short step from naming them. `suppressed` is the flag to render on, and
+ * `reason` is why — a blank cell reads as "no gap here", which is the opposite
+ * of what withholding means.
+ */
+export interface Disclosable {
+  value: number | null;
+  officers: number;
+  suppressed: boolean;
+  reason?: string;
+}
+
+export interface InterviewAnalytics {
+  cohort: {
+    officers_interviewed: number;
+    sessions_completed: number;
+    answers_scored: number;
+    below_disclosure_threshold: boolean;
+  };
+  axes: Record<string, Disclosable>;
+  weakest_competencies: {
+    competency_id: number;
+    competency_name: string;
+    answers: number;
+    mean_knowledge: Disclosable;
+    /** null when the mean was withheld — the flag would leak it otherwise. */
+    is_weak: boolean | null;
+  }[];
+  most_missed_points: { point: string; times: number }[];
+  adaptive: { generated_questions_answered: number; note: string };
+  disclosure: { min_cohort: number; note: string };
+}
+
+/** Courses, paths and practice drawn from one interview's findings. */
+export interface FollowThrough {
+  interview_id: number;
+  competencies: {
+    competency_id: number;
+    competency_name: string;
+    current_level: number | null;
+    required_level: number | null;
+    courses: {
+      course_id: number;
+      title: string;
+      provider: string | null;
+      level_from: number;
+      level_to: number;
+      duration_hours: number;
+      score: number;
+      reason: string;
+    }[];
+    note: string | null;
+    can_build_path: boolean;
+  }[];
+  practice: { kind: string; title: string; detail: string }[];
+  caveat: string;
+}

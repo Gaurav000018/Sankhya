@@ -8,13 +8,14 @@ import {
   AttentionPanel,
   AxisScores,
   CoachingPanel,
+  FollowThroughPanel,
   type AnswerReport,
   type Axis,
 } from "../components/InterviewReport";
 import { Card, Empty, ErrorNote, Note, Spinner } from "../components/ui";
 import { useFaceMesh } from "../hooks/useFaceMesh";
 import { useRecorder } from "../hooks/useRecorder";
-import type { Coaching, FracRole, NextQuestion } from "../types";
+import type { Coaching, FollowThrough, FracRole, NextQuestion } from "../types";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 interface QuestionSlot {
@@ -91,6 +92,7 @@ export function Interview() {
   const faceMesh = useFaceMesh();
   const [attentionNote, setAttentionNote] = useState<string | null>(null);
   const [nextInfo, setNextInfo] = useState<NextQuestion | null>(null);
+  const [followThrough, setFollowThrough] = useState<FollowThrough | null>(null);
 
   useEffect(() => {
     api
@@ -302,6 +304,12 @@ export function Interview() {
     try {
       setInterview(await api.post<Interview>(`/interviews/${interview.interview_id}/complete`));
       setActiveId(null);
+      // Fetched once, on finishing, rather than on every refresh: it ranks
+      // courses against each weak competency, which is real work.
+      api
+        .get<FollowThrough>(`/interviews/${interview.interview_id}/follow-through`)
+        .then(setFollowThrough)
+        .catch(() => setFollowThrough(null));
     } finally {
       setBusy(false);
     }
@@ -524,6 +532,10 @@ export function Interview() {
             </Card>
           </div>
         )}
+
+        <div className="mb-4">
+          <FollowThroughPanel data={followThrough} />
+        </div>
 
         <AnswerBreakdown answers={interview.answers} />
       </>
