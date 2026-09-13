@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.security import hash_password
 from app.db import SessionLocal, reset_schema
 from app.models import (
@@ -309,9 +311,33 @@ def make_user(
     )
 
 
+def _stamp_alembic_head() -> None:
+    """Tell Alembic the schema it is looking at is current.
+
+    `reset_schema` builds the tables with `create_all` and drops
+    `alembic_version` along with everything else. Alembic then believes the
+    database has never been migrated, so the next `alembic upgrade head` — which
+    the production entrypoint runs on every boot — replays the initial migration
+    against tables that already exist and dies on `DuplicateTable`.
+
+    On a deployed instance that is a crash loop triggered by the first restart
+    after seeding, which is a long way from the seed script and looks nothing
+    like its fault.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parents[2]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+    command.stamp(config, "head")
+
+
 def seed(total_officers: int = 200) -> None:
     print("Resetting schema...")
     reset_schema()
+    _stamp_alembic_head()
     db: Session = SessionLocal()
 
     try:
