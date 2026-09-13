@@ -68,13 +68,15 @@ PAIRS = [
     ("warn", "surface", AA_BODY, "at-risk status"),
     ("near", "surface", AA_BODY, "near-target status"),
     ("good", "surface", AA_BODY, "met status"),
-    # Filled cells and buttons: white text on a solid semantic ground.
-    ("surface", "critical", AA_BODY, "white on critical fill (heatmap, buttons)"),
-    ("surface", "warn", AA_BODY, "white on at-risk fill"),
-    ("surface", "near", AA_BODY, "white on near-target fill"),
-    ("surface", "good", AA_BODY, "white on met fill"),
-    ("surface", "accent", AA_BODY, "primary button label"),
-    ("surface", "navy", AA_BODY, "header text"),
+    # Filled cells and buttons. On a dark theme the semantic colours are the
+    # bright end of the scale, so the label on top of them is the near-black
+    # ground — not white, which would be unreadable on lime or neon green.
+    ("ground", "critical", AA_BODY, "label on critical fill (heatmap, badges)"),
+    ("ground", "warn", AA_BODY, "label on at-risk fill"),
+    ("ground", "near", AA_BODY, "label on near-target fill"),
+    ("ground", "good", AA_BODY, "label on met fill"),
+    ("ground", "accent", AA_BODY, "primary button label"),
+    ("ink", "surface-2", AA_BODY, "text on inset panels and the sticky header"),
     # Non-text: bars, rules and cell fills carry meaning on their own.
     ("accent", "surface-2", AA_NON_TEXT, "progress and signal bars"),
     ("rule-strong", "surface", AA_NON_TEXT, "input borders"),

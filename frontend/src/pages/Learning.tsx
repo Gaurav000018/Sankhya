@@ -294,7 +294,7 @@ export function Learning() {
                           <button
                             disabled={busy === rec.competency_id}
                             onClick={() => buildPath(rec.competency_id)}
-                            className="mt-3 bg-accent px-3.5 py-1.5 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                            className="mt-3 bg-accent px-3.5 py-1.5 text-[12.5px] font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
                           >
                             {busy === rec.competency_id
                               ? "Building…"

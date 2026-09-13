@@ -146,7 +146,7 @@ export function Quiz() {
             <button
               disabled={busy || answered === 0}
               onClick={submit}
-              className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Submitting…" : "Submit"}
             </button>
@@ -173,7 +173,7 @@ export function Quiz() {
                         key={optionIndex}
                         htmlFor={id}
                         className={`flex cursor-pointer items-start gap-3 border px-3 py-2 text-[13.5px] transition-colors ${
-                          chosen ? "border-accent bg-[#f3f5f9]" : "border-rule hover:border-rule-strong"
+                          chosen ? "border-accent bg-tint-accent" : "border-rule hover:border-rule-strong"
                         }`}
                       >
                         <input
@@ -263,9 +263,9 @@ export function Quiz() {
                       key={optionIndex}
                       className={`flex items-start gap-3 border px-3 py-2 text-[13.5px] ${
                         isKey
-                          ? "border-good bg-[#f2f7f4]"
+                          ? "border-good bg-tint-good"
                           : isYours
-                            ? "border-critical bg-[#faf3f2]"
+                            ? "border-critical bg-tint-critical"
                             : "border-rule"
                       }`}
                     >
@@ -293,7 +293,7 @@ export function Quiz() {
               )}
 
               {item.citation?.quote && (
-                <blockquote className="mt-3 border-l-2 border-brass bg-[#f6f4ee] px-3 py-2 text-[12.5px] italic leading-relaxed text-ink-2">
+                <blockquote className="mt-3 border-l-2 border-brass bg-tint-brass px-3 py-2 text-[12.5px] italic leading-relaxed text-ink-2">
                   &ldquo;{item.citation.quote}&rdquo;
                   {item.citation.page && (
                     <span className="ml-2 font-mono not-italic text-[11px] text-ink-3">
@@ -333,7 +333,7 @@ export function Quiz() {
               <button
                 disabled={busy}
                 onClick={() => start()}
-                className="w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {busy ? "Preparing…" : "Assess my widest gap"}
               </button>

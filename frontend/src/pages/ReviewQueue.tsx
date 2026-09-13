@@ -199,7 +199,7 @@ export function ReviewQueue() {
           <button
             disabled={busy || !uploadFile || !uploadTitle.trim() || uploadCompetency === ""}
             onClick={upload}
-            className="mt-3 bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-3 bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Uploading..." : "Upload and generate"}
           </button>
@@ -256,7 +256,7 @@ export function ReviewQueue() {
                       key={index}
                       className={`flex gap-3 border px-3 py-2 text-[13.5px] ${
                         index === selected.correct_index
-                          ? "border-good bg-[#f2f7f4]"
+                          ? "border-good bg-tint-good"
                           : "border-rule"
                       }`}
                     >
@@ -322,7 +322,7 @@ export function ReviewQueue() {
                       )}
                     </div>
 
-                    <blockquote className="border-l-2 border-brass bg-[#f6f4ee] px-4 py-3 text-[13px] italic leading-relaxed text-ink-2">
+                    <blockquote className="border-l-2 border-brass bg-tint-brass px-4 py-3 text-[13px] italic leading-relaxed text-ink-2">
                       “{source.quote}”
                     </blockquote>
 
@@ -357,7 +357,7 @@ export function ReviewQueue() {
                   <button
                     disabled={busy || (source ? !source.citation_verified : false)}
                     onClick={() => decide("approve")}
-                    className="bg-good px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="bg-good px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     Approve for use
                   </button>

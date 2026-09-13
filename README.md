@@ -46,7 +46,28 @@ docker compose up -d --build
 docker compose exec api python -m app.seed.seed
 ```
 
-API docs at <http://localhost:8000/docs>. Health check at `/health`.
+```bash
+cd frontend && npm install && npm run dev
+```
+
+The interface is at <http://localhost:3000>, API docs at
+<http://localhost:8000/docs>, health at `/health` and `/health/ready`.
+
+Sign in with any seeded account (password `Sankhya@2026`), or register a new one
+at `/register` — self-registration is limited to `gov.in` and `nic.in`
+addresses. With `EMAIL_ENABLED=false` the API hands the confirmation link back
+in the response and the page shows it, so a demo never waits on an email.
+
+### Accounts and email
+
+Officers register themselves, confirm the address, and an administrator then
+assigns their division and FRAC role — a new account is always a learner with
+no role, because every competency figure is measured against a role and that
+must not be self-declared.
+
+Delivery is [Resend](https://resend.com). For real sending, set `EMAIL_ENABLED=true`,
+`RESEND_API_KEY`, and an `EMAIL_FROM` on a domain verified in the Resend
+dashboard. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ### Verifying it works
 
@@ -267,12 +288,60 @@ Four methods, one interface, all issuing the same JWT:
 | TOTP | No delivery, no quota, works with the network off. **This is the one to demo on stage.** |
 | Parichay SSO | Adapter stub. Real integration needs ministry onboarding. |
 
-With `EMAIL_ENABLED=false` the OTP is logged and returned in the API response.
-A live demo must never depend on an email arriving over venue wifi.
+With `EMAIL_ENABLED=false` every code and link is logged and returned in the API
+response instead of being sent. A live demo must never depend on an email
+arriving over venue wifi — and a production deployment refuses to start in that
+state, because nobody could complete registration.
 
-To send real mail, set `EMAIL_ENABLED=true` and use a Gmail **App Password** —
-which requires 2-Step Verification to be enabled on that account first, or the
-option does not appear in Google account settings.
+### Account lifecycle
+
+| Step | Endpoint | Notes |
+|---|---|---|
+| Register | `POST /auth/register` | Restricted to `gov.in` / `nic.in`, suffix-matched so `gov.in.example.com` is refused. Always creates a **learner with no role**. |
+| Confirm | `POST /auth/verify` | Single-use, 24h. Consuming it activates the account and signs the officer in — they have just proved control of the mailbox. |
+| Forgot | `POST /auth/forgot-password` | 2h link. Issuing one invalidates the last. |
+| Reset | `POST /auth/reset-password` | Burns the token, then emails the officer that their password moved — which is how someone learns an attacker reached the link but not the inbox. |
+| Change | `POST /auth/change-password` | Requires the current password even though the session is authenticated. |
+
+Registration and password reset answer **identically** whether or not the
+address is known. Anything else turns either endpoint into a way to enumerate
+which officers hold accounts.
+
+Division and FRAC role are assigned by an administrator, never by the applicant:
+every competency figure is measured against a role, and the platform's whole
+premise is that competency is not self-declared. A new officer sees a
+getting-started page saying exactly that, rather than a dashboard of zeros.
+
+Tokens live in Postgres rather than Redis, stored only as a keyed hash. A
+sign-in code is worthless ten minutes later; a confirmation link is the only
+route into an account and a reset is a security event that has to stay
+auditable.
+
+Sign-in, registration, resend and reset are all rate limited — counted per email
+*and* per client IP, since either alone is trivially evaded. Redis being down
+fails **open**: the limiter is a brake on abuse, not an authorisation decision,
+and the password check behind it is what protects the account.
+
+Delivery is [Resend](https://resend.com), not SMTP: no connection held open
+inside a request handler, no app password to rotate, and failures come back as a
+status code rather than an exception from deep inside `smtplib`. Sending never
+fails a request — if Resend is down, an officer requesting a code gets the same
+neutral response they always do.
+
+---
+
+## Taking it to production
+
+[DEPLOYMENT.md](DEPLOYMENT.md) covers the whole path: configuration, Alembic
+migrations on boot, the hardened image, health probes, and an honest list of
+what a government deployment still needs that this prototype does not have
+(Parichay SSO, cookie sessions, token revocation).
+
+The short version: copy `.env.production.example`, fill in everything marked
+REQUIRED, and set `APP_ENV=production`. The API **refuses to start** if the JWT
+secret is still the development placeholder, if `CORS_ORIGINS` is empty, or if
+email sending is off — a crash loop is visible, whereas signing tokens with a
+public secret is silent and every session issued that way is forgeable.
 
 ---
 

@@ -23,6 +23,11 @@ from app import (  # noqa: F401
     models_quiz,
 )
 
+# Tables that live next to the code that owns them rather than in a models_*
+# module. Missing one here is silent: autogenerate would emit a migration that
+# drops it.
+from app.core import tokens  # noqa: F401  (email_tokens)
+
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 

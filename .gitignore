@@ -46,3 +46,10 @@ data/*.pdf
 # internet. Keep that one.
 !frontend/public/mediapipe/
 !frontend/public/mediapipe/**
+
+# Vite local overrides
+.env.local
+*.local
+
+# TypeScript incremental build cache
+*.tsbuildinfo

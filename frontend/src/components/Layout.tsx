@@ -6,7 +6,7 @@ import { LOCALES, LOCALE_NAMES, useI18n } from "../i18n";
 import type { MessageKey } from "../i18n";
 
 const NAV_KEYS: Record<string, MessageKey> = {
-  "/": "nav.dashboard",
+  "/dashboard": "nav.dashboard",
   "/learning": "nav.learning",
   "/promotion": "nav.promotion",
   "/team": "nav.team",
@@ -37,28 +37,37 @@ export function Layout({ children }: { children: ReactNode }) {
       <a href="#main" className="skip-link">
         {t("nav.skipToContent")}
       </a>
-      <header className="bg-navy text-[#eceae4]">
+      {/* Sticky, because the nav is how you move between an officer's twin and
+          the evidence behind it, and those screens are long. */}
+      <header className="sticky top-0 z-40 border-b border-rule bg-ground/85 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-6 px-6">
-          <div className="flex items-center gap-7">
-            <div className="flex items-center gap-2.5">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a961" strokeWidth="1.8" strokeLinecap="round">
+          <div className="flex min-w-0 items-center gap-7">
+            {/* The mark goes home to the landing page, not the dashboard — the
+                dashboard has its own nav entry. */}
+            <NavLink to="/" className="flex items-center gap-2.5" aria-label="SANKHYA home">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M4 20V13" /><path d="M9.3 20V8" /><path d="M14.7 20V15" /><path d="M20 20V4" />
               </svg>
-              <span className="font-serif text-[17px] font-semibold tracking-[0.08em] text-[#f4f2ec]">
+              <span className="font-serif text-[17px] font-semibold tracking-[0.08em]">
                 SANKHYA
               </span>
-            </div>
-            <nav aria-label={t("nav.primary")} className="flex gap-1">
+            </NavLink>
+            {/* Scrolls rather than wraps. An admin sees ten links, and a
+                two-line nav pushes the whole page down by 28px. */}
+            <nav
+              aria-label={t("nav.primary")}
+              className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               {links.map((path) => (
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === "/"}
+                  end={path === "/dashboard"}
                   className={({ isActive }) =>
-                    `px-2.5 py-1.5 text-[13px] transition-colors ${
+                    `whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] transition-colors ${
                       isActive
-                        ? "font-medium text-[#f4f2ec] shadow-[inset_0_-2px_0_#c9a961]"
-                        : "text-[#a9b1c2] hover:text-[#f4f2ec]"
+                        ? "bg-tint-accent font-medium text-accent"
+                        : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`
                   }
                 >
@@ -68,7 +77,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-[#a9b1c2]">
+          <div className="flex items-center gap-3 text-xs text-ink-2">
             <label htmlFor="locale" className="sr-only">
               {t("nav.language")}
             </label>
@@ -76,23 +85,23 @@ export function Layout({ children }: { children: ReactNode }) {
               id="locale"
               value={locale}
               onChange={(e) => setLocale(e.target.value as typeof locale)}
-              className="border border-[#3a4358] bg-transparent px-1.5 py-1 text-[12px] text-[#a9b1c2] focus:border-[#5a6478]"
+              className="rounded-md border border-rule-strong bg-surface px-1.5 py-1 text-[12px] text-ink-2 focus:border-accent"
             >
               {LOCALES.map((code) => (
-                <option key={code} value={code} className="text-ink">
+                <option key={code} value={code} className="bg-surface text-ink">
                   {LOCALE_NAMES[code]}
                 </option>
               ))}
             </select>
-            <span className="hidden font-mono tracking-[0.04em] sm:inline">
+            <span className="hidden font-mono tracking-[0.04em] text-ink-3 sm:inline">
               MoSPI · {user?.role ? t(ROLE_KEYS[user.role]) : ""}
             </span>
             <button
               onClick={() => {
                 signOut();
-                navigate("/login");
+                navigate("/");
               }}
-              className="border border-[#3a4358] px-2.5 py-1 text-[12px] text-[#a9b1c2] transition-colors hover:border-[#5a6478] hover:text-[#f4f2ec]"
+              className="rounded-full border border-rule-strong px-3 py-1 text-[12px] text-ink-2 transition-colors hover:border-accent hover:text-accent"
             >
               {t("nav.signOut")}
             </button>

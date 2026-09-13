@@ -28,6 +28,57 @@ class TotpVerify(BaseModel):
     code: str = Field(min_length=6, max_length=6)
 
 
+class RegisterRequest(BaseModel):
+    """Self-registration.
+
+    Division and FRAC role are deliberately absent: an officer does not get to
+    declare which division they belong to or what grade they hold, because the
+    whole platform rests on those being authoritative. An administrator assigns
+    them after the address is verified.
+    """
+
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=10, max_length=128)
+    service_years: float = Field(default=0, ge=0, le=60)
+
+
+class RegisterResponse(BaseModel):
+    # Deliberately says nothing about whether the address was already in use.
+    message: str
+    email_sent: bool
+    # Dev mode only, so a demo never waits on an email arriving.
+    dev_verify_url: str | None = None
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=256)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=256)
+    password: str = Field(min_length=10, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class MessageResponse(BaseModel):
+    message: str
+    # Dev mode only. Never populated when EMAIL_ENABLED is true.
+    dev_url: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

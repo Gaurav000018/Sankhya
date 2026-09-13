@@ -43,6 +43,7 @@ def init_db() -> None:
         models_learning,
         models_quiz,
     )
+    from app.core import tokens  # noqa: F401  (email_tokens)
 
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -64,6 +65,7 @@ def reset_schema() -> None:
         models_learning,
         models_quiz,
     )
+    from app.core import tokens  # noqa: F401  (email_tokens)
 
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
