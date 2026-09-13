@@ -421,7 +421,7 @@ export function Interview() {
             <button
               disabled={busy}
               onClick={begin}
-              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Preparing…" : "Begin interview"}
             </button>
@@ -457,7 +457,7 @@ export function Interview() {
               {!done && (
                 <button
                   onClick={() => setActiveId(remaining[0].answer_id)}
-                  className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90"
                 >
                   Continue ({remaining.length} left)
                 </button>
@@ -515,7 +515,7 @@ export function Interview() {
               <video
                 src={recorder.localVideoUrl}
                 controls
-                className="block max-h-[320px] w-full bg-navy"
+                className="block max-h-[320px] w-full bg-surface-2"
               />
               <p className="mt-2 text-[11.5px] leading-relaxed text-ink-3">
                 Watching yourself back is the part of this that actually teaches you
@@ -554,7 +554,7 @@ export function Interview() {
               <button
                 disabled={busy}
                 onClick={() => saveTranscript(true)}
-                className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 Save and re-score
               </button>
@@ -651,7 +651,7 @@ export function Interview() {
         <Card title="Recorder">
           {cameraWanted && faceMesh.supported !== false && (
             <div className="mb-3.5">
-              <div className="relative overflow-hidden border border-rule bg-navy">
+              <div className="relative overflow-hidden border border-rule bg-surface-2">
                 {/* Mirrored, because a preview that is not mirrored reads as
                     someone else's face rather than your own. */}
                 <video
@@ -662,7 +662,7 @@ export function Interview() {
                   className="block h-[150px] w-full scale-x-[-1] object-cover"
                 />
                 {recorder.state === "recording" && faceMesh.livePresent === false && (
-                  <p className="absolute inset-x-0 bottom-0 bg-navy/85 px-2 py-1 text-[11px] text-[#eceae4]">
+                  <p className="absolute inset-x-0 bottom-0 bg-ground/85 px-2 py-1 text-[11px] text-ink">
                     Camera cannot see you — move into frame, or carry on, it does not
                     affect your score.
                   </p>
@@ -712,7 +712,7 @@ export function Interview() {
 
               <button
                 onClick={recorder.stop}
-                className="mt-5 w-full bg-navy px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110"
               >
                 Stop and submit
               </button>
@@ -734,7 +734,7 @@ export function Interview() {
               <button
                 disabled={busy || recorder.state === "requesting"}
                 onClick={recorder.start}
-                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {recorder.state === "requesting" ? "Requesting microphone…" : "Start recording"}
               </button>
@@ -771,7 +771,7 @@ export function Interview() {
                   disabled={q.status === "scored"}
                   className={`px-3 py-1.5 text-[12px] ${
                     q.answer_id === activeId
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-ground"
                       : q.status === "scored"
                         ? "border border-rule bg-surface-2 text-ink-3"
                         : "border border-rule-strong text-ink-2 hover:border-accent"

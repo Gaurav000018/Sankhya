@@ -83,8 +83,8 @@ const VERDICT_LABEL: Record<string, string> = {
 };
 
 const PRIORITY_STYLE: Record<string, string> = {
-  "Priority 1": "bg-critical text-white",
-  "Priority 2": "bg-warn text-white",
+  "Priority 1": "bg-critical text-ground",
+  "Priority 2": "bg-warn text-ground",
   "Priority 3": "bg-rule-strong text-ink",
 };
 

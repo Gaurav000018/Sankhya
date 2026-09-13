@@ -44,6 +44,7 @@ const en = {
 
   // Document titles (WCAG 2.4.2) — translated too, or a Hindi speaker gets a
   // Hindi page in an English tab.
+  "title.landing": "Workforce intelligence",
   "title.dashboard": "Dashboard",
   "title.learning": "Development plan",
   "title.promotion": "Promotion outlook",
@@ -55,6 +56,10 @@ const en = {
   "title.interview": "AI interview",
   "title.settings": "Settings",
   "title.signIn": "Sign in",
+  "title.register": "Create an account",
+  "title.verify": "Confirm your address",
+  "title.forgotPassword": "Reset your password",
+  "title.resetPassword": "Choose a new password",
   "title.noAccess": "No access",
 
   // Shared states
@@ -165,6 +170,7 @@ const hi: Partial<Record<MessageKey, string>> = {
   "role.sme": "विषय विशेषज्ञ",
   "role.admin": "प्रशासक",
 
+  "title.landing": "कार्यबल आसूचना",
   "title.dashboard": "डैशबोर्ड",
   "title.learning": "विकास योजना",
   "title.promotion": "पदोन्नति संभावना",
@@ -176,6 +182,10 @@ const hi: Partial<Record<MessageKey, string>> = {
   "title.interview": "एआई साक्षात्कार",
   "title.settings": "सेटिंग्स",
   "title.signIn": "साइन इन",
+  "title.register": "खाता बनाएँ",
+  "title.verify": "पता सत्यापित करें",
+  "title.forgotPassword": "पासवर्ड रीसेट करें",
+  "title.resetPassword": "नया पासवर्ड चुनें",
   "title.noAccess": "पहुँच नहीं",
 
   "common.loading": "लोड हो रहा है",

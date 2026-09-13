@@ -62,7 +62,10 @@ def main() -> int:
         if path.name == "locales.ts":
             continue
         text = path.read_text(encoding="utf-8")
-        for key in re.findall(r't\(\s*"([a-zA-Z0-9_.]+)"', text):
+        # The lookbehind matters: without it this matches the `t("` inside
+        # `params.get("token")`, `Number.parseInt("...")` and anything else
+        # ending in t — and then reports a missing translation key for it.
+        for key in re.findall(r'(?<![A-Za-z0-9_$.])t\(\s*"([a-zA-Z0-9_.]+)"', text):
             used.setdefault(key, set()).add(str(path.relative_to(SRC)))
         # Keys held in a lookup table and passed to t() indirectly.
         for key in re.findall(r'"((?:nav|role|status|source|common|login|dashboard)\.[a-zA-Z0-9_.]+)"', text):

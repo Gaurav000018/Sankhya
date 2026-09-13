@@ -7,10 +7,15 @@ import { Empty, Spinner } from "./components/ui";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { CapacityPlan } from "./pages/CapacityPlan";
 import { Interview } from "./pages/Interview";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { Landing } from "./pages/Landing";
 import { Learning } from "./pages/Learning";
 import { LearnerDashboard } from "./pages/LearnerDashboard";
 import { Login } from "./pages/Login";
 import { Promotion } from "./pages/Promotion";
+import { Register } from "./pages/Register";
+import { ResetPassword } from "./pages/ResetPassword";
+import { VerifyEmail } from "./pages/VerifyEmail";
 import { Quiz } from "./pages/Quiz";
 import { Settings } from "./pages/Settings";
 import { ReviewQueue } from "./pages/ReviewQueue";
@@ -55,14 +60,34 @@ export function App() {
 
   return (
     <Routes>
+      {/* `/` is the public landing page for everyone — the mark in the app nav
+          links back to it, and the page swaps its calls to action for a
+          signed-in officer rather than bouncing them away. */}
+      <Route path="/" element={<Landing />} />
       <Route
         path="/login"
-        element={loading ? <Spinner /> : user ? <Navigate to="/" replace /> : <Login />}
+        element={
+          loading ? <Spinner /> : user ? <Navigate to="/dashboard" replace /> : <Login />
+        }
+      />
+      {/* Registration and recovery. `/verify` and `/reset-password` stay
+          reachable while signed in: a link opened in a browser that already has
+          a session is a normal thing to do, and bouncing it to the dashboard
+          would silently drop the token. */}
+      <Route
+        path="/register"
+        element={loading ? <Spinner /> : user ? <Navigate to="/dashboard" replace /> : <Register />}
       />
       <Route
-        path="/"
+        path="/forgot-password"
+        element={loading ? <Spinner /> : user ? <Navigate to="/dashboard" replace /> : <ForgotPassword />}
+      />
+      <Route path="/verify" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route
+        path="/dashboard"
         element={
-          <Protected path="/">
+          <Protected path="/dashboard">
             <LearnerDashboard />
           </Protected>
         }

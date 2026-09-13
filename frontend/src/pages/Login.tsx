@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api";
 import { useAuth } from "../auth";
@@ -36,7 +36,7 @@ export function Login() {
     try {
       const { access_token } = await fn();
       await signIn(access_token);
-      navigate("/");
+      navigate("/dashboard");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not sign in. Try again.");
     } finally {
@@ -58,14 +58,18 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center px-6 py-12">
+    <div className="relative flex min-h-full items-center justify-center overflow-hidden px-6 py-12">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[-6rem] -z-10 h-[26rem] w-[36rem] -translate-x-1/2 animate-drift rounded-full bg-accent opacity-[0.10] blur-[110px]"
+      />
       <div className="w-full max-w-[420px]">
-        <div className="mb-7 flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8a6614" strokeWidth="1.8" strokeLinecap="round">
+        <Link to="/" className="mb-7 inline-flex items-center gap-2.5">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round">
             <path d="M4 20V13" /><path d="M9.3 20V8" /><path d="M14.7 20V15" /><path d="M20 20V4" />
           </svg>
           <span className="font-serif text-[21px] font-semibold tracking-[0.08em]">SANKHYA</span>
-        </div>
+        </Link>
 
         <h1 className="font-serif text-[24px] font-semibold leading-tight">
           {t("login.heading")}
@@ -74,7 +78,7 @@ export function Login() {
 {t("login.intro")}
         </p>
 
-        <div className="mt-7 border border-rule bg-surface">
+        <div className="mt-7 rounded-xl border border-rule bg-surface">
           <div role="tablist" aria-label="Sign-in method" className="flex border-b border-rule">
             {METHODS.map((m) => (
               <button
@@ -111,7 +115,7 @@ export function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
-              className="mt-1.5 w-full border border-rule-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              className="mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
             />
 
             {method === "password" && (
@@ -131,15 +135,23 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.loginWithPassword(email, password))
                   }
-                  className="mt-1.5 w-full border border-rule-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                  className="mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy}
                   onClick={() => run(() => api.loginWithPassword(email, password))}
-                  className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
                 >
                   {busy ? t("login.submitting") : t("login.submit")}
                 </button>
+                <div className="mt-3 text-center">
+                  <Link
+                    to="/forgot-password"
+                    className="text-[12.5px] text-ink-3 transition-colors hover:text-accent"
+                  >
+                    Forgotten your password?
+                  </Link>
+                </div>
               </>
             )}
 
@@ -148,13 +160,13 @@ export function Login() {
                 <button
                   disabled={busy}
                   onClick={sendCode}
-                  className="mt-4 w-full border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-ink disabled:opacity-50"
+                  className="mt-4 w-full rounded-full border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
                 >
                   {busy ? t("login.sending") : t("login.sendCode")}
                 </button>
 
                 {devCode && (
-                  <div className="mt-3 border-l-2 border-brass bg-[#f6f4ee] px-3 py-2 text-[12.5px] text-ink-2">
+                  <div className="mt-3 border-l-2 border-brass bg-tint-brass px-3 py-2 text-[12.5px] text-ink-2">
                     <strong className="font-semibold text-ink">Development mode.</strong>{" "}
                     Your code is <span className="font-mono font-semibold">{devCode}</span>.
                     Email sending is off, so a demo never waits on a message arriving.
@@ -177,12 +189,12 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.verifyOtp(email, code))
                   }
-                  className="tabular mt-1.5 w-full border border-rule-strong bg-surface px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
+                  className="tabular mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy || code.length !== 6}
                   onClick={() => run(() => api.verifyOtp(email, code))}
-                  className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
                 >
                   {t("login.verify")}
                 </button>
@@ -207,12 +219,12 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.loginWithTotp(email, code))
                   }
-                  className="tabular mt-1.5 w-full border border-rule-strong bg-surface px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
+                  className="tabular mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy || code.length !== 6}
                   onClick={() => run(() => api.loginWithTotp(email, code))}
-                  className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
                 >
                   Sign in
                 </button>
@@ -234,7 +246,14 @@ export function Login() {
           </div>
         </div>
 
-        <p className="mt-5 text-[12px] leading-relaxed text-ink-3">
+        <p className="mt-5 text-[13px] text-ink-2">
+          New to SANKHYA?{" "}
+          <Link to="/register" className="text-accent underline underline-offset-2">
+            Create an account
+          </Link>
+        </p>
+
+        <p className="mt-4 text-[12px] leading-relaxed text-ink-3">
 {t("login.parichay")}
         </p>
       </div>

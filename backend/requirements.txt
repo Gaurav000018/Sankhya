@@ -11,6 +11,11 @@ argon2-cffi>=23.1.0
 pyotp>=2.9.0
 qrcode[pil]>=8.0
 redis>=5.1.0
+
+# Transactional email through Resend's HTTP API, and the client FastAPI's own
+# TestClient already depends on — so this adds nothing to the image it did not
+# already carry.
+httpx>=0.27.0
 pgvector>=0.3.0
 
 # Document text extraction. Pure Python and small, so it runs in the API

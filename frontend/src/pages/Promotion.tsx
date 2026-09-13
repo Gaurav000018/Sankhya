@@ -260,7 +260,7 @@ export function Promotion() {
                   type="button"
                   onClick={runSimulation}
                   disabled={simulating || selected.length === 0}
-                  className="border border-accent bg-accent px-4 py-2 text-[12.5px] font-medium text-surface disabled:border-rule disabled:bg-surface-2 disabled:text-ink-3"
+                  className="border border-accent bg-accent px-4 py-2 text-[12.5px] font-medium text-ground disabled:border-rule disabled:bg-surface-2 disabled:text-ink-3"
                 >
                   {simulating ? "Working it out…" : "Simulate"}
                 </button>

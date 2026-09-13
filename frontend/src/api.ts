@@ -10,6 +10,28 @@
 
 const TOKEN_KEY = "sankhya.token";
 
+/**
+ * Where the API lives.
+ *
+ * Empty in development, so every call is `/api/...` and Vite's proxy forwards
+ * it to localhost:8000 — one origin, no CORS preflight on every request.
+ *
+ * In a split deployment (frontend on a CDN, API on its own host) set
+ * `VITE_API_BASE_URL` at build time to the API's origin. It is read at build
+ * time, not runtime, so changing it means rebuilding — which is the tradeoff
+ * for it costing nothing at runtime.
+ *
+ * Prefer a same-origin rewrite where the host supports one: it keeps the
+ * browser on one origin, which means no preflight on every request and no
+ * third-party cookie problem if sessions ever move to cookies.
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+
+/** Absolute URL for an API path. `path` always starts with a slash. */
+export function apiUrl(path: string): string {
+  return API_BASE ? `${API_BASE}${path}` : `/api${path}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -43,7 +65,7 @@ async function request<T>(
   const { method = "GET", body, auth = true } = options;
   const token = auth ? getToken() : null;
 
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     method,
     headers: {
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
@@ -102,6 +124,57 @@ export const api = {
       auth: false,
     }),
 
+  /* --- registration and password recovery ------------------------------- *
+   *
+   * `dev_verify_url` / `dev_url` are populated only when the API is running in
+   * dev mode with sending disabled, so a demo never waits on an email. In
+   * production they are always null and the link exists solely in the inbox.  */
+
+  register: (body: {
+    email: string;
+    full_name: string;
+    password: string;
+    service_years: number;
+  }) =>
+    request<{ message: string; email_sent: boolean; dev_verify_url: string | null }>(
+      "/auth/register",
+      { method: "POST", body, auth: false },
+    ),
+
+  verifyEmail: (token: string) =>
+    request<{ access_token: string; method: string }>("/auth/verify", {
+      method: "POST",
+      body: { token },
+      auth: false,
+    }),
+
+  resendVerification: (email: string) =>
+    request<{ message: string; dev_url: string | null }>("/auth/verify/resend", {
+      method: "POST",
+      body: { email },
+      auth: false,
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ message: string; dev_url: string | null }>("/auth/forgot-password", {
+      method: "POST",
+      body: { email },
+      auth: false,
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ access_token: string; method: string }>("/auth/reset-password", {
+      method: "POST",
+      body: { token, password },
+      auth: false,
+    }),
+
+  changePassword: (current_password: string, new_password: string) =>
+    request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: { current_password, new_password },
+    }),
+
   /** Audio goes as multipart, so it bypasses the JSON request helper. */
   uploadAnswerAudio: async (interviewId: number, answerId: number, blob: Blob) => {
     const form = new FormData();
@@ -110,7 +183,7 @@ export const api = {
 
     const token = getToken();
     const response = await fetch(
-      `/api/interviews/${interviewId}/answers/${answerId}/audio`,
+      apiUrl(`/interviews/${interviewId}/answers/${answerId}/audio`),
       {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -143,7 +216,7 @@ export const api = {
     form.append("competency_id", String(competencyId));
 
     const token = getToken();
-    const response = await fetch("/api/materials", {
+    const response = await fetch(apiUrl("/materials"), {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
@@ -164,7 +237,7 @@ export const api = {
    *  reach it — the bytes come back here and become an object URL. */
   downloadEvidenceReport: async (days = 180) => {
     const token = getToken();
-    const response = await fetch(`/api/reports/evidence/me?days=${days}`, {
+    const response = await fetch(apiUrl(`/reports/evidence/me?days=${days}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!response.ok) {

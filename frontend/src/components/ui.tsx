@@ -160,7 +160,7 @@ export function ErrorNote({ message }: { message: string }) {
 
 export function Note({ children, tone = "accent" }: { children: ReactNode; tone?: "accent" | "brass" }) {
   const border = tone === "brass" ? "border-brass" : "border-accent";
-  const bg = tone === "brass" ? "bg-[#f6f4ee]" : "bg-[#f3f5f9]";
+  const bg = tone === "brass" ? "bg-tint-brass" : "bg-tint-accent";
   return (
     <div className={`border-l-2 ${border} ${bg} px-4 py-3 text-[13px] leading-relaxed text-ink-2`}>
       {children}
