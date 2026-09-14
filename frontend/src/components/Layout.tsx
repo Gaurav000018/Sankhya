@@ -7,6 +7,7 @@ import type { MessageKey } from "../i18n";
 
 const NAV_KEYS: Record<string, MessageKey> = {
   "/dashboard": "nav.dashboard",
+  "/journey": "nav.journey",
   "/learning": "nav.learning",
   "/promotion": "nav.promotion",
   "/team": "nav.team",

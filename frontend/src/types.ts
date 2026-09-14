@@ -359,3 +359,75 @@ export interface Coaching {
   focus_competency_ids: number[];
   note: string;
 }
+
+
+/* --------------------------------------------------------------- journey -- */
+
+export interface JourneySignal {
+  competency_id: number;
+  competency_code: string;
+  competency_name: string;
+  level: number | null;
+  records: number;
+}
+
+/** Where the written assessment and the spoken/typed interview disagree.
+ *  Reported rather than averaged — the disagreement is the finding. */
+export interface JourneyDivergence {
+  competency_name: string;
+  assessment_level: number;
+  interview_level: number;
+  gap: number;
+  reading: string;
+}
+
+export interface RoadmapStep {
+  order: number;
+  competency_name: string;
+  current_level: number;
+  required_level: number;
+  gap: number;
+  criticality: string;
+  why: string;
+  action: string;
+  course_title: string | null;
+  course_provider: string | null;
+  course_hours: number | null;
+  course_reason: string | null;
+}
+
+export interface JourneyOut {
+  assessment: JourneySignal[];
+  interview: JourneySignal[];
+  divergences: JourneyDivergence[];
+  roadmap: RoadmapStep[];
+  narrative: string[];
+  target_role: string | null;
+  readiness_now: number;
+  months_to_target: number | null;
+  projected_date: string | null;
+  /** Required for the role but with no evidence — an assumed gap, not an
+   *  observed one. */
+  unmeasured: string[];
+  caveat: string;
+  /** No FRAC role assigned yet, so no roadmap can be built. */
+  needs_role: boolean;
+}
+
+export interface WrittenAnswerOut {
+  answer_id: number;
+  status: string;
+  scored: {
+    knowledge: number | null;
+    structure: number | null;
+    communication: number | null;
+    /** Null for a typed answer: both are measured from speech. */
+    fluency: number | null;
+    confidence: number | null;
+  };
+  covered_points: string[];
+  missed_points: string[];
+  model: string;
+  degraded: boolean;
+  note: string;
+}

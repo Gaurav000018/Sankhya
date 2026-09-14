@@ -41,15 +41,21 @@ from app.schemas import (
     NextQuestionOut,
     InterviewSummaryOut,
     TranscriptCorrectionIn,
+    WrittenAnswerIn,
     UploadAcceptedOut,
 )
+from app.ml.judge import get_judge
 from app.services.interview import (
+    AnalysisInput,
+    apply_calibration,
     InterviewError,
     advance,
     build_report,
     complete_interview,
+    score_answer,
     start_interview,
 )
+from app.services.interview_scoring import SpeechSignal
 
 log = logging.getLogger("sankhya.api.interview")
 router = APIRouter(prefix="/interviews", tags=["interview"])
@@ -92,6 +98,23 @@ def create_interview(
     calibration task first — fluency is scored against their own baseline, so
     there is no fair way to score delivery until that has been captured.
     """
+    # Resume rather than open a second session. A browser refresh, a StrictMode
+    # double-effect or a back button would otherwise leave a trail of abandoned
+    # interviews, each holding answers nobody will ever finish — and the officer
+    # silently loses the one they were part-way through.
+    existing = db.scalar(
+        select(Interview)
+        .where(
+            Interview.user_id == user.id,
+            Interview.status.in_(
+                [InterviewStatus.CALIBRATING, InterviewStatus.IN_PROGRESS]
+            ),
+        )
+        .order_by(Interview.started_at.desc())
+    )
+    if existing is not None:
+        return _serialise(db, existing, user)
+
     try:
         interview = start_interview(db, user=user, target_role_id=payload.target_role_id)
     except InterviewError as exc:
@@ -288,6 +311,138 @@ def correct_transcript(
         "answer_id": answer.id,
         "transcript": answer.transcript,
         "rejudging": payload.rejudge,
+    }
+
+
+@router.post("/{interview_id}/answers/{answer_id}/written", response_model=dict)
+def submit_written_answer(
+    interview_id: int,
+    answer_id: int,
+    payload: WrittenAnswerIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Answer in writing instead of speaking, and score it immediately.
+
+    The spoken path needs a speech worker beside a GPU to turn audio into a
+    transcript. Where that does not exist, the alternative is not "no interview"
+    — the Knowledge and Structure axes are judged from the transcript either
+    way, and a typed answer is a transcript that needed no recognition.
+
+    **Fluency and confidence are left unscored, not defaulted.** They are
+    measured from speech — pace against the officer's own baseline, filler rate,
+    pauses — and none of that exists in typed text. Recording a neutral 3.0
+    would be inventing a measurement, and this platform derives every level from
+    evidence that actually happened.
+
+    Scoring runs inline rather than through the queue. It is one model call with
+    no audio to process, so there is nothing to wait on and no worker to depend
+    on.
+    """
+    interview = _load_interview(db, interview_id, user)
+    if interview.user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This is not your interview")
+
+    answer = _load_answer(db, interview, answer_id)
+    if answer.status == AnswerStatus.SCORED:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This answer has already been scored"
+        )
+
+    text = payload.answer.strip()
+
+    # Recorded as `transcript_raw` too: it is the original the officer supplied,
+    # and leaving it empty would make the transcript-correction diff meaningless.
+    answer.transcript_raw = text
+    answer.transcript_confirmed = text
+    answer.status = AnswerStatus.TRANSCRIBED
+
+    question = answer.question
+
+    data = AnalysisInput(
+        transcript=text,
+        # Everything speech-derived stays at its zero value, and
+        # `score_fluency`/`score_confidence` return None rather than a number
+        # when there is nothing to measure.
+        signal=SpeechSignal(words=len(text.split())),
+        fillers=[],
+        pauses={},
+        prosody={},
+        duration=0.0,
+        warnings=["Typed answer — delivery axes are not measurable from text."],
+        spoken=False,
+    )
+
+    if question is not None and question.is_baseline:
+        # The read-aloud item establishes the delivery baseline and moves the
+        # session out of CALIBRATING. The speech worker does this for a spoken
+        # answer; without it here, a typed session stayed in CALIBRATING forever
+        # and never advanced past the first question.
+        #
+        # There is no baseline to compute from typed text — words per minute and
+        # filler rate need audio — so the interview simply has none, and
+        # `score_fluency` already reports "not scoreable" rather than guessing
+        # when the baseline is absent.
+        apply_calibration(db, answer, data)
+        db.commit()
+        db.refresh(answer)
+        return {
+            "answer_id": answer.id,
+            "status": answer.status.value,
+            "calibration": True,
+            "scored": {
+                "knowledge": None, "structure": None, "communication": None,
+                "fluency": None, "confidence": None,
+            },
+            "covered_points": [],
+            "missed_points": [],
+            "model": "n/a",
+            "degraded": False,
+            "note": (
+                "Calibration recorded. Reading neutral text carries no knowledge "
+                "load, so it is never scored — and a typed passage yields no "
+                "speaking baseline, so delivery stays unscored for this session."
+            ),
+        }
+
+    verdict = get_judge().score(
+        question.prompt if question else "",
+        list(question.expected_points or []) if question else [],
+        text,
+    )
+    score_answer(db, answer, data, verdict)
+
+    write_audit(
+        db,
+        action="interview.written_answer",
+        actor_user_id=user.id,
+        entity_type="interview_answer",
+        entity_id=str(answer.id),
+        meta={"chars": len(text), "model": verdict.model_name, "degraded": verdict.degraded},
+        request=request,
+    )
+    db.commit()
+    db.refresh(answer)
+
+    return {
+        "answer_id": answer.id,
+        "status": answer.status.value,
+        "scored": {
+            "knowledge": answer.score.knowledge if answer.score else None,
+            "structure": answer.score.structure if answer.score else None,
+            "communication": answer.score.communication if answer.score else None,
+            "fluency": answer.score.fluency if answer.score else None,
+            "confidence": answer.score.confidence if answer.score else None,
+        },
+        "covered_points": verdict.covered_points,
+        "missed_points": verdict.missed_points,
+        "model": verdict.model_name,
+        "degraded": verdict.degraded,
+        "note": (
+            "Fluency and confidence are measured from speech and are not scored "
+            "for a typed answer."
+        ),
     }
 
 
