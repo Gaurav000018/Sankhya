@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.models_learning import Course, CourseCompletion
 from app.seed.questions import seed_questions
+from app.seed.quiz_bank import seed_quiz_bank
 from app.services.competency import recompute_profile
 from app.services.igot import sync_catalogue
 from app.services.recommender import embed_catalogue
@@ -468,6 +469,11 @@ def seed(total_officers: int = 200) -> None:
         # ------------------------------------------------------------------ #
         # Course history. Without it the peer signal is always zero and every
         # recommendation looks identical, which hides half the ranking model.
+        print("Loading curated MCQ bank...")
+        # After the demo accounts, not before: every item records the SME who
+        # approved it, and at framework-build time no users exist yet.
+        mcq_count = seed_quiz_bank(db, competencies)
+
         print("Generating course completion history...")
         courses = list(db.scalars(select(Course)).all())
         completions = 0
@@ -507,6 +513,7 @@ def seed(total_officers: int = 200) -> None:
         print(f"  FRAC roles        {len(FRAC_ROLES)}")
         print(f"  Competencies      {len(COMPETENCIES)} over 4 domains")
         print(f"  Interview bank    {question_count} questions + 1 calibration")
+        print(f"  Assessment bank   {mcq_count} approved MCQs across 12 competencies")
         print(f"  Course catalogue  {catalogue['total']} courses, {embedded} embedded")
         print(f"  Completions       {completions}")
         print(f"  Evidence rows     ~{evidence_total}")

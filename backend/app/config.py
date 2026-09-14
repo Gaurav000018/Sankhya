@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     # unscoreable rather than as a flattering zero.
     vosk_model_path: str = ""
 
+    # --- scoring model ------------------------------------------------------ #
+    # A hosted judge, for deployments with no GPU beside the API. Set this and
+    # the interview is genuinely LLM-scored on a container host that could not
+    # otherwise run a model at all. Falls back to Ollama, then to a keyword
+    # stub that labels itself in every verdict.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+
     ollama_base_url: str = "http://localhost:11434"
     judge_model: str = "qwen2.5:3b-instruct-q4_K_M"
 
