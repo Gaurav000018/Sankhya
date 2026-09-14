@@ -220,7 +220,19 @@ async def upload_answer_audio(
     )
     db.commit()
 
-    queue.enqueue_analysis(answer.id)
+    try:
+        queue.enqueue_analysis(answer.id)
+    except queue.QueueUnavailable:
+        # The recording is saved and the answer row exists; only the handover
+        # failed. Say so plainly rather than returning "queued" for a job that
+        # nothing will ever pick up.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Speech analysis is unavailable on this deployment — the analysis "
+            "queue could not be reached. Your answer was recorded; type or "
+            "correct the transcript to have it scored on knowledge and "
+            "structure instead.",
+        )
 
     return UploadAcceptedOut(
         answer_id=answer.id,
