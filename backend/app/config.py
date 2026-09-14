@@ -52,6 +52,20 @@ class Settings(BaseSettings):
     password_reset_ttl_hours: int = 2
     password_min_length: int = 10
 
+    # --- Google Sign-In ----------------------------------------------------- #
+    # The OAuth *client ID*. Public by design: it ships in the frontend bundle
+    # and identifies the application, it does not authorise anything. No client
+    # secret is involved — the browser returns a signed ID token, which the API
+    # verifies against Google's public keys, so there is no secret to leak.
+    # Empty disables Google sign-in and hides the button.
+    google_client_id: str = ""
+
+    # Whether a Google account with an allowed domain and no existing officer
+    # record may create one. Separate from `registration_open`, which governs
+    # password signup: that is gated on email confirmation, and Google has
+    # already proven the address, so the two decisions are genuinely different.
+    google_auto_provision: bool = True
+
     # --- abuse limits ------------------------------------------------------ #
     # Password login is the one endpoint an attacker can grind offline-style,
     # and it had no limit at all before. Counted per email and per client IP.

@@ -124,6 +124,24 @@ export const api = {
       auth: false,
     }),
 
+  /** What sign-in methods this deployment offers. Asked at runtime, so
+   *  enabling Google is a server restart rather than a frontend rebuild. */
+  authConfig: () =>
+    request<{
+      google_client_id: string | null;
+      registration_open: boolean;
+      allowed_email_domains: string[];
+    }>("/auth/config", { auth: false }),
+
+  /** Exchange a Google ID token for a SANKHYA session. The token is verified
+   *  server-side against Google's public keys; nothing is trusted here. */
+  signInWithGoogle: (credential: string) =>
+    request<{ access_token: string; method: string }>("/auth/google", {
+      method: "POST",
+      body: { credential },
+      auth: false,
+    }),
+
   /* --- registration and password recovery ------------------------------- *
    *
    * `dev_verify_url` / `dev_url` are populated only when the API is running in

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api";
+import { AuthDivider, GoogleSignIn } from "../components/GoogleSignIn";
 import { useAuth } from "../auth";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useT } from "../i18n";
@@ -29,6 +30,16 @@ export function Login() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Asked at runtime so enabling Google is a server restart, not a rebuild.
+  // Null while unknown, so the button never flashes in and out.
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .authConfig()
+      .then((config) => setGoogleClientId(config.google_client_id))
+      .catch(() => setGoogleClientId(null));
+  }, []);
 
   async function run(fn: () => Promise<{ access_token: string }>) {
     setBusy(true);
@@ -79,6 +90,18 @@ export function Login() {
         </p>
 
         <div className="mt-7 rounded-xl border border-rule bg-surface">
+          {googleClientId && (
+            <div className="border-b border-rule p-5 pb-0">
+              <GoogleSignIn
+                clientId={googleClientId}
+                disabled={busy}
+                onCredential={(credential) =>
+                  run(() => api.signInWithGoogle(credential))
+                }
+              />
+              <AuthDivider />
+            </div>
+          )}
           <div role="tablist" aria-label="Sign-in method" className="flex border-b border-rule">
             {METHODS.map((m) => (
               <button
