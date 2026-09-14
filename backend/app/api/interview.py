@@ -443,7 +443,7 @@ def submit_attention(
     metrics.quality = _attention_quality(payload.face_present_ratio, payload.frames_analysed)
 
     write_audit(
-        db, actor=user, action="interview.attention_received",
+        db, actor_user_id=user.id, action="interview.attention_received",
         entity_type="interview_answer", entity_id=str(answer.id),
         request=request,
         meta={

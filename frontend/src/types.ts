@@ -326,6 +326,12 @@ export interface AttentionSummary {
   head_stability: number | null;
   face_present_ratio: number | null;
   frames_analysed: number;
+  /** Share of hand samples in which a hand was in frame. */
+  hands_visible_ratio: number | null;
+  /** 0-1: how much the hands moved while visible. */
+  hand_movement: number | null;
+  /** Times a hand came up to the face. */
+  face_touch_count: number | null;
 }
 
 /** What comes back with an answer in the officer's own report. */

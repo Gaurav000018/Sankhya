@@ -89,6 +89,8 @@ def wav_duration(path: str | Path) -> float:
 
 _whisper_model = None
 _cuda_dlls_registered = False
+# Handles from os.add_dll_directory, kept alive for the life of the process.
+_cuda_dll_handles: list = []
 
 
 def _register_cuda_dlls() -> None:
@@ -106,16 +108,29 @@ def _register_cuda_dlls() -> None:
         return
     _cuda_dlls_registered = True
 
+    found: list[str] = []
     for base in {*sys.path, *(getattr(__import__("site"), "getsitepackages", list)() or [])}:
         nvidia = Path(base) / "nvidia"
         if not nvidia.is_dir():
             continue
         for bin_dir in sorted(nvidia.glob("*/bin")):
             try:
-                os.add_dll_directory(str(bin_dir))
-                log.debug("Registered CUDA DLL directory %s", bin_dir)
+                # The returned handle has to be kept. `add_dll_directory` removes
+                # the directory from the search path when its handle is garbage
+                # collected, so discarding it made this work only until the
+                # collector happened to run — the model loaded on CUDA, then the
+                # first inference failed to find cuBLAS, which is loaded lazily.
+                _cuda_dll_handles.append(os.add_dll_directory(str(bin_dir)))
+                found.append(str(bin_dir))
             except (OSError, AttributeError):
                 pass
+
+    if found:
+        # Belt and braces: a library loaded with plain LoadLibrary searches PATH
+        # and ignores directories registered above, and CTranslate2's deferred
+        # cuBLAS load is not guaranteed to use the flag that honours them.
+        os.environ["PATH"] = os.pathsep.join([*found, os.environ.get("PATH", "")])
+        log.info("Registered %d CUDA DLL directories", len(found))
 
 
 def _load_whisper(model_size: str = "small"):
@@ -203,6 +218,11 @@ def transcribe(
         )
         # `allow_retry` stops this recursing if the CPU model somehow raises the
         # same class of error.
+        if cuda_related:
+            # Name the library. "CUDA inference failed" alone once hid a DLL-path
+            # bug for a whole session, and every transcription quietly took ten
+            # times longer on the CPU while nobody could see why.
+            log.warning("Whisper CUDA inference failed: %s", exc)
         if cuda_related and allow_retry and _fall_back_to_cpu() is not None:
             return transcribe(wav_path, language=language, allow_retry=False)
         log.exception("Transcription failed")

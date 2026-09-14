@@ -9,6 +9,7 @@ import {
   AxisScores,
   CoachingPanel,
   FollowThroughPanel,
+  MistakesPanel,
   type AnswerReport,
   type Axis,
 } from "../components/InterviewReport";
@@ -62,6 +63,8 @@ interface AnswerStatus {
   transcript: string | null;
   scored: boolean;
 }
+
+const MAX_STATUS_POLLS = 240; // at 1.5s each
 
 function seconds(value: number) {
   const m = Math.floor(value / 60);
@@ -188,7 +191,22 @@ export function Interview() {
           );
           setAnswerStatus(status);
 
-          if (status.scored || status.status === "failed" || attempts > 90) {
+          // About six minutes. Transcription, the rubric judge and the mistake
+          // check run one after another, and on the CPU runner a long answer
+          // takes over two minutes — the old limit of 90 polls gave up on
+          // answers that were still being analysed.
+          const timedOut = attempts > MAX_STATUS_POLLS;
+          if (timedOut && !status.scored && status.status !== "failed") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setProgress(null);
+            setError(
+              "Analysis is taking much longer than usual. Your recording was received; " +
+                "check that the analysis worker is still running, then reload this page.",
+            );
+            return;
+          }
+          if (status.scored || status.status === "failed") {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
             setProgress(null);
@@ -204,7 +222,9 @@ export function Interview() {
           } else {
             setProgress(
               status.job === "analysing"
-                ? "Transcribing and scoring your answer…"
+                ? status.detail
+                  ? `${status.detail}…`
+                  : "Transcribing and scoring your answer…"
                 : status.worker_online
                   ? "Queued for analysis…"
                   : "Queued, but no analysis worker is running.",
@@ -523,6 +543,10 @@ export function Interview() {
 
         <div className="mb-4">
           <AxisScores axes={interview.axes} fluencyEnabled={interview.fluency_scoring_enabled} />
+        </div>
+
+        <div className="mb-4">
+          <MistakesPanel answers={interview.answers} />
         </div>
 
         <div className="mb-4">

@@ -428,6 +428,11 @@ class InterviewOut(BaseModel):
     axes: dict[str, AxisOut]
     answers: list[dict]
     disclosure: dict
+    # Strengths, weaknesses and next steps, derived from the numbers above.
+    # Declared explicitly: `build_report` has always produced it, but a response
+    # model drops any field it does not name, so the report reached the browser
+    # without its feedback and nothing anywhere raised an error.
+    coaching: dict | None = None
     questions: list[dict]
     worker_online: bool
     max_answer_seconds: int
@@ -449,6 +454,9 @@ class AttentionIn(BaseModel):
     head_stability: float | None = Field(default=None, ge=0.0, le=1.0)
     face_present_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
     frames_analysed: int = Field(default=0, ge=0, le=1_000_000)
+    hands_visible_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
+    hand_movement: float | None = Field(default=None, ge=0.0, le=1.0)
+    face_touch_count: int | None = Field(default=None, ge=0, le=10_000)
     consent_version: str | None = Field(default=None, max_length=32)
 
 

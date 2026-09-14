@@ -274,6 +274,10 @@ class AnswerScore(Base):
     # judge's short reasons. Shown to the officer verbatim.
     covered_points: Mapped[list | None] = mapped_column(JSONB)
     missed_points: Mapped[list | None] = mapped_column(JSONB)
+    # Sentences the officer said that contradict an approved expected point:
+    # [{quote, problem, correction}]. The quote is their own sentence and the
+    # correction is the approved fact, never model prose. See `ml/mistakes.py`.
+    mistakes: Mapped[list | None] = mapped_column(JSONB)
     rationale: Mapped[dict | None] = mapped_column(JSONB)
 
     model_name: Mapped[str | None] = mapped_column(String(80))
@@ -337,6 +341,18 @@ class AttentionMetrics(Base):
     # is conditioned on this.
     face_present_ratio: Mapped[float | None] = mapped_column(Float)
     frames_analysed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Gestures, from MediaPipe Hand Landmarker in the same browser pass. Same
+    # rules as everything above: aggregates only, coaching only, never scored.
+    # Hand movement while speaking is personal and cultural — plenty of good
+    # explainers talk with their hands — so these are reported as what a camera
+    # saw, not as a verdict on how anyone should hold themselves.
+    hands_visible_ratio: Mapped[float | None] = mapped_column(Float)
+    # 0-1: how much the hands moved, averaged over frames where they were seen.
+    hand_movement: Mapped[float | None] = mapped_column(Float)
+    # Times a hand came up to the face. The one gesture most speakers want to
+    # know about, because they rarely notice they are doing it.
+    face_touch_count: Mapped[int | None] = mapped_column(Integer)
 
     # "good" | "partial" | "unusable" — set from face_present_ratio so the
     # interface never has to re-derive the rule.
