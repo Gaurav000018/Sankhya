@@ -8,6 +8,8 @@
  * why the seam is here in one file.
  */
 
+import type { JourneyOut, WrittenAnswerOut } from "./types";
+
 const TOKEN_KEY = "sankhya.token";
 
 /**
@@ -192,6 +194,22 @@ export const api = {
       method: "POST",
       body: { current_password, new_password },
     }),
+
+  /* --- guided journey ---------------------------------------------------- */
+
+  /** Assessment and interview combined, with a roadmap to the next role. */
+  journey: (targetRoleId?: number) =>
+    request<JourneyOut>(
+      `/journey/me${targetRoleId ? `?target_role_id=${targetRoleId}` : ""}`,
+    ),
+
+  /** Answer an interview question in writing. Used where there is no speech
+   *  pipeline; scored inline on knowledge, structure and communication. */
+  submitWrittenAnswer: (interviewId: number, answerId: number, answer: string) =>
+    request<WrittenAnswerOut>(
+      `/interviews/${interviewId}/answers/${answerId}/written`,
+      { method: "POST", body: { answer } },
+    ),
 
   /** Audio goes as multipart, so it bypasses the JSON request helper. */
   uploadAnswerAudio: async (interviewId: number, answerId: number, blob: Blob) => {

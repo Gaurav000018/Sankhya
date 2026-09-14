@@ -103,6 +103,24 @@ def start_attempt(
                 break
 
     if competency_id is None:
+        # An officer with no FRAC role yet — newly registered, awaiting an
+        # administrator — has no gaps, so there is nothing to target. Refusing
+        # would leave them unable to be assessed at all until someone else acts.
+        # Any competency with an item bank still produces real evidence; it is
+        # simply not aimed at a gap, because no gap is known yet.
+        fallback = db.scalar(
+            select(GeneratedQuestion.competency_id)
+            .where(
+                GeneratedQuestion.status == QuestionStatus.APPROVED,
+                GeneratedQuestion.competency_id.is_not(None),
+            )
+            .group_by(GeneratedQuestion.competency_id)
+            .having(func.count(GeneratedQuestion.id) >= MIN_ITEMS)
+            .order_by(func.random())
+        )
+        competency_id = fallback
+
+    if competency_id is None:
         # Everything here exists to produce competency evidence. An attempt with
         # no competency runs, scores, and silently records nothing — worse than
         # refusing, because the officer thinks they were assessed.

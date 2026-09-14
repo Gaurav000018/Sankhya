@@ -98,6 +98,11 @@ class Journey:
     projected_date: str | None = None
     unmeasured: list[str] = field(default_factory=list)
     caveat: str = ""
+    # True for an officer with no FRAC role yet — newly registered, awaiting an
+    # administrator. Every gap is measured against a role, so without one there
+    # is nothing to rank a roadmap by. Reported rather than rendered as an empty
+    # roadmap, which reads as "you have no gaps".
+    needs_role: bool = False
 
 
 def _levels_by_source(
@@ -208,6 +213,7 @@ def build_journey(
                 select(FracRole).where(FracRole.level_order == current.level_order + 1)
             )
     journey.target_role = target.name if target else None
+    journey.needs_role = user.frac_role_id is None
 
     gaps = analyse_gaps(db, user=user, target_role_id=target.id if target else None)
     open_gaps = [g for g in gaps if g.is_gap]
@@ -312,6 +318,18 @@ def _narrative(db: Session, user: User, journey: Journey, open_gap_count: int) -
             Interview.user_id == user.id, Interview.status == InterviewStatus.COMPLETED
         )
     ).all()
+
+    if journey.needs_role:
+        lines.append(
+            "Your division and grade have not been assigned yet, so there is no role "
+            "to measure you against and no roadmap to build. An administrator sets "
+            "these — every competency requirement on this platform comes from a role, "
+            "which is why it is not something you can set yourself."
+        )
+        lines.append(
+            "You can still take an assessment and an interview now. The evidence is "
+            "real and is kept; it simply is not yet aimed at a particular gap."
+        )
 
     lines.append(
         f"You have completed {len(attempts)} assessment"
