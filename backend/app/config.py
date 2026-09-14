@@ -145,14 +145,32 @@ def _require_production_settings(s: Settings) -> list[str]:
         )
     if s.email_enabled and not s.resend_api_key:
         problems.append("EMAIL_ENABLED is true but RESEND_API_KEY is not set.")
-    if not s.email_enabled:
+    if not s.email_enabled and s.registration_open:
+        # Fatal only in this combination: self-registration is advertised on the
+        # sign-in page, and without delivery the confirmation link goes to the
+        # log instead of the officer — so every new account is created and then
+        # stranded unverified.
         problems.append(
-            "EMAIL_ENABLED is false. Sign-in codes and verification links would be "
-            "logged instead of sent, and no one could complete registration."
+            "EMAIL_ENABLED is false while REGISTRATION_OPEN is true. Confirmation "
+            "links would be written to the log instead of sent, so nobody could "
+            "finish signing up. Set RESEND_API_KEY and EMAIL_ENABLED=true, or set "
+            "REGISTRATION_OPEN=false to run with provisioned accounts only."
         )
     if s.public_app_url.startswith("http://") and "localhost" not in s.public_app_url:
         problems.append("PUBLIC_APP_URL must use https outside local development.")
     return problems
+
+
+def production_warnings(s: Settings) -> list[str]:
+    """Degraded but serviceable. Logged, never fatal."""
+    notes: list[str] = []
+    if not s.email_enabled and not s.registration_open:
+        notes.append(
+            "Email is off and registration is closed: sign-in works for provisioned "
+            "accounts, but password reset and email codes do not. An administrator "
+            "is the only route back into a locked-out account."
+        )
+    return notes
 
 
 @lru_cache

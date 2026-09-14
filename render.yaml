@@ -1,0 +1,81 @@
+# Render blueprint for the SANKHYA API.
+#
+#   New → Blueprint → connect this repo → Apply
+#
+# Render builds backend/Dockerfile.prod, which runs `alembic upgrade head`
+# before starting the server, so the schema is created on first boot. Nothing
+# here needs a credit card.
+#
+# Everything marked `sync: false` is a secret or an environment-specific URL:
+# Render prompts for it on first deploy and never stores it in the repo.
+#
+# Note on the free plan: the instance sleeps after ~15 minutes of inactivity and
+# the next request waits ~30 seconds for a cold start. Fine for a demo, and the
+# frontend stays instant because it is static on Vercel. Judges hitting a cold
+# API mid-presentation is the one thing worth paying to avoid — open the site
+# once a few minutes beforehand and it stays warm.
+
+services:
+  - type: web
+    name: sankhya-api
+    runtime: docker
+    plan: free
+    region: singapore          # closest Render region to Vercel's bom1 edge
+    dockerfilePath: ./backend/Dockerfile.prod
+    dockerContext: ./backend
+    healthCheckPath: /health    # liveness only — does not touch Postgres
+    autoDeployTrigger: commit
+
+    envVars:
+      - key: APP_ENV
+        value: production
+
+      # --- secrets and environment-specific URLs, entered in the dashboard --- #
+
+      # Neon, with ?sslmode=require. Use the POOLED connection string.
+      # Swap the driver prefix Neon gives you: postgresql:// → postgresql+psycopg://
+      - key: DATABASE_URL
+        sync: false
+
+      # Upstash Redis, rediss:// (two s — TLS). Used for sign-in codes and rate
+      # limiting; the limiter fails open if it is unreachable.
+      - key: REDIS_URL
+        sync: false
+
+      # Generate once:
+      #   python -c "import secrets; print(secrets.token_urlsafe(48))"
+      # The API refuses to start in production if this is missing or is the
+      # development placeholder.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Your Vercel origin, no trailing slash, e.g. https://sankhya-two.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+
+      # The same origin. Links in emails are built from this — point it at the
+      # API by mistake and every confirmation link lands on raw JSON.
+      - key: PUBLIC_APP_URL
+        sync: false
+
+      # --- email ---------------------------------------------------------- #
+      # Fast path: no Resend account needed. Sign-in works for seeded and
+      # admin-provisioned accounts, which is everything a demo needs. Self
+      # registration is closed because without delivery a new account would be
+      # created and then stranded with its confirmation link in a log file —
+      # the API refuses to boot in that combination rather than pretend.
+      - key: EMAIL_ENABLED
+        value: "false"
+      - key: REGISTRATION_OPEN
+        value: "false"
+
+      # To turn signup on later: create a Resend account, add RESEND_API_KEY
+      # here, flip both values above to "true", and set EMAIL_FROM to an address
+      # on a domain verified in the Resend dashboard. Until a domain is
+      # verified, Resend's onboarding@resend.dev sender only delivers to the
+      # address you signed up with.
+      - key: EMAIL_FROM
+        value: SANKHYA <onboarding@resend.dev>
+
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: gov.in,nic.in

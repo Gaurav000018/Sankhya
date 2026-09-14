@@ -16,7 +16,7 @@ from app.api import (
     onboarding,
     quiz,
 )
-from app.config import _require_production_settings, settings
+from app.config import _require_production_settings, production_warnings, settings
 from app.db import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +41,8 @@ async def lifespan(app: FastAPI):
         )
     for problem in problems:
         log.warning("Not production-ready: %s", problem)
+    for note in production_warnings(settings):
+        log.warning("Running degraded: %s", note)
 
     if settings.is_production:
         # Migrations own the schema in production. `create_all` adds missing
