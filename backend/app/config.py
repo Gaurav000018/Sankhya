@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,6 +81,27 @@ class Settings(BaseSettings):
     otp_resend_cooldown_seconds: int = 60
     otp_max_per_hour: int = 5
     otp_max_attempts: int = 5
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3(cls, value: str) -> str:
+        """Normalise the driver in a Postgres URL.
+
+        Every managed provider hands out `postgresql://` (Neon, Supabase) or
+        `postgres://` (Render, Heroku). SQLAlchemy reads that as "use psycopg2",
+        which is not installed — this project uses psycopg 3. The resulting
+        error names neither the URL nor the setting:
+
+            ModuleNotFoundError: No module named 'psycopg2'
+
+        Rewriting the scheme here means a copy-pasted connection string works,
+        instead of costing someone a failed deploy and a confusing traceback
+        that points at a package they never asked for.
+        """
+        for prefix in ("postgresql://", "postgres://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
 
     @property
     def is_dev(self) -> bool:
