@@ -81,5 +81,28 @@ services:
       - key: EMAIL_FROM
         value: SANKHYA <onboarding@resend.dev>
 
+      # Empty = any address may sign in, which is what a public demo needs.
+      # A real MoSPI deployment sets this to `gov.in,nic.in`: the platform holds
+      # officers' competency records, so an arbitrary address should not be able
+      # to create one. Suffix-matched, so `gov.in` also admits `mospi.gov.in`.
       - key: ALLOWED_EMAIL_DOMAINS
-        value: gov.in,nic.in
+        value: ""
+
+      # --- Google Sign-In ---------------------------------------------------- #
+      # The OAuth client ID from console.cloud.google.com. Public by design: it
+      # ships in the frontend bundle and identifies the application rather than
+      # authorising anything. There is no client secret in this flow — the
+      # browser returns a signed ID token and the API verifies it against
+      # Google's public keys.
+      #
+      # Leave blank to hide the button entirely. Google sign-in needs no Resend
+      # account: Google has already proven the address, so there is no
+      # confirmation email to send.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+      # Whether a Google account on an allowed domain with no officer record may
+      # create one. Set false to allow sign-in only for accounts an
+      # administrator has already provisioned.
+      - key: GOOGLE_AUTO_PROVISION
+        value: "true"

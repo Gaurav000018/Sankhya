@@ -346,6 +346,81 @@ class OllamaJudge:
             return False
 
 
+class GeminiJudge:
+    """Google's Gemini over its HTTP API.
+
+    The reason this provider exists: Ollama needs a GPU next to the API, which a
+    managed container host does not give you. A hosted model keeps the
+    interview genuinely LLM-scored on a deployment that could not otherwise run
+    one at all.
+
+    The prompt, the parsing and the `Verdict` contract are shared with
+    `OllamaJudge` — only the transport differs. That is the point of the
+    `Judge` protocol: swapping where the model runs must not change what a
+    score means, or two officers assessed on different infrastructure would not
+    be comparable.
+    """
+
+    def __init__(self, api_key: str | None = None, model: str | None = None,
+                 timeout: int = 60):
+        self.api_key = api_key or settings.gemini_api_key
+        self.model = model or settings.gemini_model
+        self.timeout = timeout
+
+    @property
+    def model_name(self) -> str:
+        return f"gemini:{self.model}"
+
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+
+    def _generate(self, prompt: str) -> str:
+        import httpx
+
+        response = httpx.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
+            # The key goes in a header, never the query string: URLs turn up in
+            # proxy logs and crash reports.
+            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
+            json={
+                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    # Deterministic: the same answer must score the same on a
+                    # re-run, or an officer disputing a score has nothing stable
+                    # to appeal against.
+                    "temperature": 0,
+                    "responseMimeType": "application/json",
+                    "maxOutputTokens": 900,
+                },
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        candidates = payload.get("candidates") or []
+        if not candidates:
+            # Usually a safety block. The transcript is an officer's exam answer,
+            # so this is rare, but it must not read as a zero score.
+            raise RuntimeError(f"no candidate returned: {str(payload)[:200]}")
+        parts = candidates[0].get("content", {}).get("parts") or []
+        return "".join(part.get("text", "") for part in parts)
+
+    def score(self, question: str, expected_points: list[str], transcript: str) -> Verdict:
+        if not (transcript or "").strip():
+            return degraded_verdict("No transcript to assess", self.model_name)
+
+        try:
+            raw = self._generate(build_prompt(question, expected_points, transcript))
+        except Exception as exc:  # noqa: BLE001 — any transport failure is degraded, not fatal
+            log.error("Gemini judge failed: %s", type(exc).__name__)
+            return degraded_verdict(
+                "The scoring model could not be reached", self.model_name
+            )
+
+        return parse_verdict(raw, expected_points, self.model_name)
+
+
 class StubJudge:
     """Deterministic stand-in for tests and for machines with no model pulled.
 
@@ -390,13 +465,28 @@ class StubJudge:
 
 
 def get_judge() -> Judge:
-    """Pick a judge. Ollama when a model is actually pulled, stub otherwise.
+    """Pick a judge: hosted model, then local model, then the stub.
+
+    Gemini first when a key is configured, because a deployment that sets one
+    has chosen it deliberately and it is the only option that works without a
+    GPU beside the API. Ollama next, for a laptop or a GPU node. The stub last,
+    and it announces itself in every verdict so a keyword-coverage score is
+    never mistaken for an assessment.
 
     Swapping the provider is a config change, not a rewrite — which is also how
-    a production deployment would move to vLLM on a GPU node.
+    a production deployment would move to vLLM on its own hardware.
     """
-    judge = OllamaJudge()
-    if judge.is_available():
-        return judge
-    log.warning("Judge model %s unavailable; using stub scorer", judge.model)
+    gemini = GeminiJudge()
+    if gemini.is_available():
+        return gemini
+
+    ollama = OllamaJudge()
+    if ollama.is_available():
+        return ollama
+
+    log.warning(
+        "No scoring model available (no GEMINI_API_KEY, and %s not pulled); "
+        "using the stub scorer",
+        ollama.model,
+    )
     return StubJudge()

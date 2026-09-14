@@ -28,6 +28,25 @@ class TotpVerify(BaseModel):
     code: str = Field(min_length=6, max_length=6)
 
 
+class GoogleSignInRequest(BaseModel):
+    """The ID token Google Identity Services hands the browser."""
+
+    credential: str = Field(min_length=32, max_length=8192)
+
+
+class AuthConfigResponse(BaseModel):
+    """What sign-in methods this deployment actually offers.
+
+    The frontend asks rather than assuming, so a build does not have to be
+    rebuilt to turn Google sign-in on, and the button is never shown for a
+    server that would reject it.
+    """
+
+    google_client_id: str | None
+    registration_open: bool
+    allowed_email_domains: list[str]
+
+
 class RegisterRequest(BaseModel):
     """Self-registration.
 
@@ -272,6 +291,14 @@ class LearningPathOut(BaseModel):
 class QuizStartIn(BaseModel):
     competency_id: int | None = None
     item_count: int = Field(default=8, ge=3, le=20)
+
+
+class WrittenAnswerIn(BaseModel):
+    """A typed interview answer, for deployments with no speech pipeline."""
+
+    # Long enough that a one-word reply cannot be scored as an answer, short
+    # enough to stay within the judge's context.
+    answer: str = Field(min_length=20, max_length=6000)
 
 
 class QuizAnswerIn(BaseModel):

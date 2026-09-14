@@ -110,13 +110,18 @@ class TestCandidatePairs:
 class FakeChecker(OllamaMistakeChecker):
     """Answers from a table instead of a model."""
 
-    def __init__(self, verdicts):
+    def __init__(self, verdicts, consistent=None):
         self.verdicts = verdicts
+        # Pairs the confirmation step calls consistent. Default: none are.
+        self.consistent = consistent or {}
         self.calls = []
 
     def _contradicts(self, fact, statement):
         self.calls.append((fact, statement))
         return self.verdicts.get((fact, statement), (False, ""))
+
+    def _is_consistent(self, fact, statement):
+        return self.consistent.get((fact, statement), False)
 
 
 class TestFindingMistakes:
@@ -205,3 +210,24 @@ class TestGroundedKnowledge:
         from app.services.interview import grounded_knowledge
 
         assert grounded_knowledge(3.4, covered=0, expected=0, mistakes=0) == (3.4, None)
+
+
+class TestConfirmation:
+    FACT = "Detecting new settlements missing from the census frame"
+    STATEMENT = "New settlements will be missing from the old census frame"
+
+    def test_a_contradiction_the_confirmation_calls_consistent_is_dropped(self):
+        """The measured false positive: a sentence that agreed with its fact."""
+        checker = FakeChecker({(self.FACT, self.STATEMENT): (True, "Wrong.")},
+                              consistent={(self.FACT, self.STATEMENT): True})
+        assert checker.find(self.STATEMENT, [self.FACT]) == []
+
+    def test_an_unconfirmable_contradiction_is_not_reported(self):
+        """If the second call fails, the officer is not accused on one call."""
+        checker = FakeChecker({(self.FACT, self.STATEMENT): (True, "Wrong.")},
+                              consistent={(self.FACT, self.STATEMENT): None})
+        assert checker.find(self.STATEMENT, [self.FACT]) == []
+
+    def test_a_confirmed_contradiction_is_reported(self):
+        checker = FakeChecker({(self.FACT, self.STATEMENT): (True, "Wrong.")})
+        assert len(checker.find(self.STATEMENT, [self.FACT])) == 1

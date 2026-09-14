@@ -7,6 +7,7 @@ import { Empty, Spinner } from "./components/ui";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { CapacityPlan } from "./pages/CapacityPlan";
 import { Interview } from "./pages/Interview";
+import { Journey } from "./pages/Journey";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Landing } from "./pages/Landing";
 import { Learning } from "./pages/Learning";
@@ -89,6 +90,14 @@ export function App() {
         element={
           <Protected path="/dashboard">
             <LearnerDashboard />
+          </Protected>
+        }
+      />
+      <Route
+        path="/journey"
+        element={
+          <Protected path="/journey">
+            <Journey />
           </Protected>
         }
       />

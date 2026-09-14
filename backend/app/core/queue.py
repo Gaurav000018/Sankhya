@@ -9,10 +9,13 @@ inside a request.
 from __future__ import annotations
 
 import json
+import logging
 
 import redis
 
 from app.config import settings
+
+log = logging.getLogger("sankhya.queue")
 
 # Blocking BRPOP holds a connection open for its whole timeout, and Docker
 # Desktop's port forwarding on Windows will drop an idle one. Keepalives plus a
@@ -36,8 +39,21 @@ STATUS_TTL = 3600
 GENERATION_QUEUE = "sankhya:generation"
 
 
+class QueueUnavailable(RuntimeError):
+    """The queue could not be reached, so the job was never accepted."""
+
+
 def enqueue_analysis(answer_id: int) -> None:
-    _redis.lpush(settings.analysis_queue, json.dumps({"answer_id": answer_id}))
+    """Hand an answer to the speech worker.
+
+    This one does raise: silently dropping a recording would leave the officer
+    watching a progress state that never resolves. The caller turns it into a
+    503 that says analysis is unavailable.
+    """
+    try:
+        _redis.lpush(settings.analysis_queue, json.dumps({"answer_id": answer_id}))
+    except TRANSIENT_ERRORS as exc:
+        raise QueueUnavailable(str(exc)) from exc
     set_status(answer_id, "queued")
 
 
@@ -98,12 +114,27 @@ def set_status(answer_id: int, status: str, detail: str | None = None) -> None:
 
 
 def get_status(answer_id: int) -> dict:
-    raw = _redis.get(STATUS_KEY.format(answer_id=answer_id))
+    """Progress of one analysis job.
+
+    An unreachable store reads the same as an unknown job: in both cases we
+    cannot say anything about it, and the caller polls again.
+    """
+    try:
+        raw = _redis.get(STATUS_KEY.format(answer_id=answer_id))
+    except TRANSIENT_ERRORS as exc:
+        log.error("Queue unavailable reading status (%s)", type(exc).__name__)
+        return {"status": "unknown", "detail": None}
     return json.loads(raw) if raw else {"status": "unknown", "detail": None}
 
 
 def queue_depth() -> int:
-    return _redis.llen(settings.analysis_queue)
+    """How many answers are waiting. Zero when the queue cannot be reached —
+    it is a number shown next to "queued", not a decision anything depends on."""
+    try:
+        return _redis.llen(settings.analysis_queue)
+    except TRANSIENT_ERRORS as exc:
+        log.error("Queue unavailable reading depth (%s)", type(exc).__name__)
+        return 0
 
 
 def worker_heartbeat(seconds: int = 30) -> None:
@@ -115,5 +146,15 @@ def worker_is_alive() -> bool:
 
     Surfaced in the API response so a queued answer that will never be picked up
     is visible immediately, rather than looking like slow processing.
+
+    An unreachable queue answers **False**, which is the truthful answer rather
+    than a fallback: if the API cannot reach the queue, no worker is reading it
+    either. Raising here took down the whole interview screen on any deployment
+    without Redis — the session cannot even be opened, which is a long way from
+    "recording will not be analysed".
     """
-    return bool(_redis.exists("sankhya:worker:alive"))
+    try:
+        return bool(_redis.exists("sankhya:worker:alive"))
+    except TRANSIENT_ERRORS as exc:
+        log.error("Queue unavailable checking worker (%s)", type(exc).__name__)
+        return False

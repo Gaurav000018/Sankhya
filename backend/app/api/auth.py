@@ -13,6 +13,7 @@ from app.config import settings
 from app.core import otp as otp_store
 from app.core import ratelimit, tokens
 from app.core.deps import get_current_user, write_audit
+from app.core.google import GoogleAuthError, verify_id_token
 from app.core.mailer import (
     send_otp_email,
     send_password_changed_email,
@@ -31,8 +32,10 @@ from app.core.tokens import TokenPurpose
 from app.db import get_db
 from app.models import User, UserRole
 from app.schemas import (
+    AuthConfigResponse,
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    GoogleSignInRequest,
     LoginRequest,
     MessageResponse,
     OtpRequest,
@@ -150,6 +153,104 @@ def login_with_password(
     # do not lock an officer out for the rest of the window.
     ratelimit.clear("login", keys)
     return _issue_token(db, request, user, "password")
+
+
+@router.get("/config", response_model=AuthConfigResponse)
+def auth_config() -> AuthConfigResponse:
+    """What sign-in methods this deployment offers.
+
+    Asked at runtime rather than compiled into the frontend, so turning Google
+    sign-in on is an environment change and a restart — not a rebuild and
+    redeploy of the browser bundle. It also means the button is never shown by
+    a server that would reject it.
+
+    Everything here is already public: the client ID ships in Google's own
+    button, and the domain rule is printed on the registration form.
+    """
+    return AuthConfigResponse(
+        google_client_id=settings.google_client_id or None,
+        registration_open=settings.registration_open,
+        allowed_email_domains=list(settings.allowed_domains),
+    )
+
+
+@router.post("/google", response_model=TokenResponse)
+def sign_in_with_google(
+    payload: GoogleSignInRequest, request: Request, db: Session = Depends(get_db)
+) -> TokenResponse:
+    """Sign in with a verified Google account.
+
+    Google has already proven the address, so there is no confirmation email in
+    this path — which is why it works on a deployment with no mail provider
+    configured at all.
+
+    An officer provisioned by an administrator can sign in this way immediately:
+    the match is on email address, so no linking step is needed. A Google
+    account with no officer record is provisioned as a learner with no division
+    and no FRAC role, on the same reasoning as password registration — the role
+    every competency is measured against is an administrator's to assign.
+    """
+    if not settings.google_client_id:
+        raise HTTPException(
+            status.HTTP_501_NOT_IMPLEMENTED,
+            "Google sign-in is not enabled on this server.",
+        )
+
+    try:
+        identity = verify_id_token(payload.credential)
+    except GoogleAuthError as exc:
+        write_audit(
+            db, action="auth.google_rejected", meta={"reason": str(exc)}, request=request
+        )
+        db.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
+
+    user = db.scalar(select(User).where(User.email == identity.email))
+
+    if user is None:
+        if not settings.google_auto_provision:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "No account exists for that address. Your division administrator "
+                "creates accounts.",
+            )
+        if not settings.email_domain_allowed(identity.email):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Sign-in is limited to official government addresses "
+                f"({', '.join(settings.allowed_domains)}).",
+            )
+
+        user = User(
+            email=identity.email,
+            full_name=identity.full_name,
+            # No password. This account signs in through Google until someone
+            # sets one via the reset flow, and `verify_password` rejects an
+            # empty hash rather than treating it as a match.
+            password_hash=None,
+            role=UserRole.LEARNER,
+            service_years=0,
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+        write_audit(
+            db,
+            action="auth.google_provisioned",
+            actor_user_id=user.id,
+            entity_type="user",
+            entity_id=str(user.id),
+            request=request,
+        )
+    elif not user.is_active:
+        # Google vouching for the address is the same proof the confirmation
+        # link provides, so an unconfirmed account becomes confirmed here.
+        user.is_active = True
+        write_audit(
+            db, action="auth.email_verified", actor_user_id=user.id, request=request
+        )
+
+    return _issue_token(db, request, user, "google")
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)

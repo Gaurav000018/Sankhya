@@ -52,6 +52,20 @@ class Settings(BaseSettings):
     password_reset_ttl_hours: int = 2
     password_min_length: int = 10
 
+    # --- Google Sign-In ----------------------------------------------------- #
+    # The OAuth *client ID*. Public by design: it ships in the frontend bundle
+    # and identifies the application, it does not authorise anything. No client
+    # secret is involved — the browser returns a signed ID token, which the API
+    # verifies against Google's public keys, so there is no secret to leak.
+    # Empty disables Google sign-in and hides the button.
+    google_client_id: str = ""
+
+    # Whether a Google account with an allowed domain and no existing officer
+    # record may create one. Separate from `registration_open`, which governs
+    # password signup: that is gated on email confirmation, and Google has
+    # already proven the address, so the two decisions are genuinely different.
+    google_auto_provision: bool = True
+
     # --- abuse limits ------------------------------------------------------ #
     # Password login is the one endpoint an attacker can grind offline-style,
     # and it had no limit at all before. Counted per email and per client IP.
@@ -63,6 +77,14 @@ class Settings(BaseSettings):
     # so without this there is no filler measurement and fluency is reported as
     # unscoreable rather than as a flattering zero.
     vosk_model_path: str = ""
+
+    # --- scoring model ------------------------------------------------------ #
+    # A hosted judge, for deployments with no GPU beside the API. Set this and
+    # the interview is genuinely LLM-scored on a container host that could not
+    # otherwise run a model at all. Falls back to Ollama, then to a keyword
+    # stub that labels itself in every verdict.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
 
     ollama_base_url: str = "http://localhost:11434"
     judge_model: str = "qwen2.5:3b-instruct-q4_K_M"

@@ -23,6 +23,7 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 const en = {
   // Navigation and chrome
   "nav.dashboard": "Dashboard",
+  "nav.journey": "Measure me",
   "nav.learning": "Learning",
   "nav.promotion": "Promotion",
   "nav.team": "Team",
@@ -46,6 +47,7 @@ const en = {
   // Hindi page in an English tab.
   "title.landing": "Workforce intelligence",
   "title.dashboard": "Dashboard",
+  "title.journey": "Measure where you stand",
   "title.learning": "Development plan",
   "title.promotion": "Promotion outlook",
   "title.team": "Team readiness",
@@ -151,6 +153,7 @@ export type MessageKey = keyof typeof en;
  */
 const hi: Partial<Record<MessageKey, string>> = {
   "nav.dashboard": "डैशबोर्ड",
+  "nav.journey": "मेरा आकलन",
   "nav.learning": "अधिगम",
   "nav.promotion": "पदोन्नति",
   "nav.team": "दल",
@@ -172,6 +175,7 @@ const hi: Partial<Record<MessageKey, string>> = {
 
   "title.landing": "कार्यबल आसूचना",
   "title.dashboard": "डैशबोर्ड",
+  "title.journey": "अपनी स्थिति मापें",
   "title.learning": "विकास योजना",
   "title.promotion": "पदोन्नति संभावना",
   "title.team": "दल की तत्परता",

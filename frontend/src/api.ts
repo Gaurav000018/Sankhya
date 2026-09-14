@@ -8,6 +8,8 @@
  * why the seam is here in one file.
  */
 
+import type { JourneyOut, WrittenAnswerOut } from "./types";
+
 const TOKEN_KEY = "sankhya.token";
 
 /**
@@ -124,6 +126,24 @@ export const api = {
       auth: false,
     }),
 
+  /** What sign-in methods this deployment offers. Asked at runtime, so
+   *  enabling Google is a server restart rather than a frontend rebuild. */
+  authConfig: () =>
+    request<{
+      google_client_id: string | null;
+      registration_open: boolean;
+      allowed_email_domains: string[];
+    }>("/auth/config", { auth: false }),
+
+  /** Exchange a Google ID token for a SANKHYA session. The token is verified
+   *  server-side against Google's public keys; nothing is trusted here. */
+  signInWithGoogle: (credential: string) =>
+    request<{ access_token: string; method: string }>("/auth/google", {
+      method: "POST",
+      body: { credential },
+      auth: false,
+    }),
+
   /* --- registration and password recovery ------------------------------- *
    *
    * `dev_verify_url` / `dev_url` are populated only when the API is running in
@@ -174,6 +194,22 @@ export const api = {
       method: "POST",
       body: { current_password, new_password },
     }),
+
+  /* --- guided journey ---------------------------------------------------- */
+
+  /** Assessment and interview combined, with a roadmap to the next role. */
+  journey: (targetRoleId?: number) =>
+    request<JourneyOut>(
+      `/journey/me${targetRoleId ? `?target_role_id=${targetRoleId}` : ""}`,
+    ),
+
+  /** Answer an interview question in writing. Used where there is no speech
+   *  pipeline; scored inline on knowledge, structure and communication. */
+  submitWrittenAnswer: (interviewId: number, answerId: number, answer: string) =>
+    request<WrittenAnswerOut>(
+      `/interviews/${interviewId}/answers/${answerId}/written`,
+      { method: "POST", body: { answer } },
+    ),
 
   /** Audio goes as multipart, so it bypasses the JSON request helper. */
   uploadAnswerAudio: async (interviewId: number, answerId: number, blob: Blob) => {
