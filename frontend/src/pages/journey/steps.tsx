@@ -453,6 +453,8 @@ export function InterviewStep({ onNext }: { onNext: () => void }) {
   if (loading) return <Spinner label="Opening an interview session" />;
   if (error && !question) return <ErrorNote message={error} />;
 
+  const isCalibration = question?.sequence === 0;
+
   if (question?.done) {
     return (
       <StepShell
@@ -468,13 +470,21 @@ export function InterviewStep({ onNext }: { onNext: () => void }) {
     );
   }
 
-  const isCalibration = question?.sequence === 0;
   const tooShort = text.trim().length > 0 && text.trim().length < 20;
 
   return (
     <StepShell
       eyebrow="Step 4 of 5"
-      title={`Interview — question ${(question?.asked ?? 0) + 1} of ${question?.max_questions ?? 5}`}
+      // The calibration passage occupies sequence 0 and is not one of the
+      // scored questions, so numbering it "question 2 of 5" both miscounts and
+      // implies it is being marked.
+      title={
+        isCalibration
+          ? "Interview — calibration"
+          : `Interview — question ${Math.max(1, question?.asked ?? 1)} of ${
+              (question?.max_questions ?? 5) - 1
+            }`
+      }
       lede={
         isCalibration
           ? "A short calibration passage first. Type it out as written — it establishes a baseline the later answers are compared against."

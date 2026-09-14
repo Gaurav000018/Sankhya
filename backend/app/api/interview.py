@@ -47,6 +47,7 @@ from app.schemas import (
 from app.ml.judge import get_judge
 from app.services.interview import (
     AnalysisInput,
+    apply_calibration,
     InterviewError,
     advance,
     build_report,
@@ -97,6 +98,23 @@ def create_interview(
     calibration task first — fluency is scored against their own baseline, so
     there is no fair way to score delivery until that has been captured.
     """
+    # Resume rather than open a second session. A browser refresh, a StrictMode
+    # double-effect or a back button would otherwise leave a trail of abandoned
+    # interviews, each holding answers nobody will ever finish — and the officer
+    # silently loses the one they were part-way through.
+    existing = db.scalar(
+        select(Interview)
+        .where(
+            Interview.user_id == user.id,
+            Interview.status.in_(
+                [InterviewStatus.CALIBRATING, InterviewStatus.IN_PROGRESS]
+            ),
+        )
+        .order_by(Interview.started_at.desc())
+    )
+    if existing is not None:
+        return _serialise(db, existing, user)
+
     try:
         interview = start_interview(db, user=user, target_role_id=payload.target_role_id)
     except InterviewError as exc:
@@ -341,11 +359,6 @@ def submit_written_answer(
     answer.status = AnswerStatus.TRANSCRIBED
 
     question = answer.question
-    verdict = get_judge().score(
-        question.prompt if question else "",
-        list(question.expected_points or []) if question else [],
-        text,
-    )
 
     data = AnalysisInput(
         transcript=text,
@@ -359,6 +372,44 @@ def submit_written_answer(
         duration=0.0,
         warnings=["Typed answer — delivery axes are not measurable from text."],
         spoken=False,
+    )
+
+    if question is not None and question.is_baseline:
+        # The read-aloud item establishes the delivery baseline and moves the
+        # session out of CALIBRATING. The speech worker does this for a spoken
+        # answer; without it here, a typed session stayed in CALIBRATING forever
+        # and never advanced past the first question.
+        #
+        # There is no baseline to compute from typed text — words per minute and
+        # filler rate need audio — so the interview simply has none, and
+        # `score_fluency` already reports "not scoreable" rather than guessing
+        # when the baseline is absent.
+        apply_calibration(db, answer, data)
+        db.commit()
+        db.refresh(answer)
+        return {
+            "answer_id": answer.id,
+            "status": answer.status.value,
+            "calibration": True,
+            "scored": {
+                "knowledge": None, "structure": None, "communication": None,
+                "fluency": None, "confidence": None,
+            },
+            "covered_points": [],
+            "missed_points": [],
+            "model": "n/a",
+            "degraded": False,
+            "note": (
+                "Calibration recorded. Reading neutral text carries no knowledge "
+                "load, so it is never scored — and a typed passage yields no "
+                "speaking baseline, so delivery stays unscored for this session."
+            ),
+        }
+
+    verdict = get_judge().score(
+        question.prompt if question else "",
+        list(question.expected_points or []) if question else [],
+        text,
     )
     score_answer(db, answer, data, verdict)
 
