@@ -183,8 +183,35 @@ def score_confidence(signal: SpeechSignal) -> tuple[float | None, list[str]]:
 
 
 def score_delivery(
-    signal: SpeechSignal, baseline: Baseline, *, fluency_enabled: bool = True
+    signal: SpeechSignal,
+    baseline: Baseline,
+    *,
+    fluency_enabled: bool = True,
+    spoken: bool = True,
 ) -> DeliveryScores:
+    """Fluency and confidence, or neither.
+
+    `spoken=False` for a typed answer. Both axes are measured from speech —
+    pace against the officer's own baseline, filler rate, pauses, latency before
+    the first word — and none of it exists in text.
+
+    This needs saying explicitly rather than falling out of the arithmetic:
+    `score_confidence` starts at 5.0 and subtracts penalties for hedging and
+    hesitation, so a typed answer with no timing data scores a *perfect* 5.0.
+    An unmeasured axis reported as full marks is a fabricated measurement, and
+    every level this platform derives is supposed to trace back to something
+    that actually happened.
+    """
+    if not spoken:
+        return DeliveryScores(
+            fluency=None,
+            confidence=None,
+            notes=[
+                "Typed answer: fluency and confidence are measured from speech "
+                "and were not assessed."
+            ],
+        )
+
     fluency, fluency_notes = score_fluency(signal, baseline, enabled=fluency_enabled)
     confidence, confidence_notes = score_confidence(signal)
     return DeliveryScores(

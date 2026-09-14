@@ -293,6 +293,14 @@ class QuizStartIn(BaseModel):
     item_count: int = Field(default=8, ge=3, le=20)
 
 
+class WrittenAnswerIn(BaseModel):
+    """A typed interview answer, for deployments with no speech pipeline."""
+
+    # Long enough that a one-word reply cannot be scored as an answer, short
+    # enough to stay within the judge's context.
+    answer: str = Field(min_length=20, max_length=6000)
+
+
 class QuizAnswerIn(BaseModel):
     question_id: int
     selected_index: int = Field(ge=0, le=5)

@@ -209,6 +209,9 @@ class AnalysisInput:
     prosody: dict
     duration: float
     warnings: list[str]
+    # False for a typed answer. Defaults True so the speech worker, which is
+    # the only other caller, is unaffected.
+    spoken: bool = True
 
 
 def _store_metrics(db: Session, answer: InterviewAnswer, data: AnalysisInput) -> AnswerMetrics:
@@ -295,6 +298,7 @@ def score_answer(db: Session, answer: InterviewAnswer, data: AnalysisInput, verd
         data.signal,
         Baseline(wpm=interview.baseline_wpm, filler_rate=interview.baseline_filler_rate),
         fluency_enabled=interview.fluency_scoring_enabled,
+        spoken=data.spoken,
     )
 
     score = answer.score

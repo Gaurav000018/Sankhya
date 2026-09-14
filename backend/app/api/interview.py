@@ -41,15 +41,20 @@ from app.schemas import (
     NextQuestionOut,
     InterviewSummaryOut,
     TranscriptCorrectionIn,
+    WrittenAnswerIn,
     UploadAcceptedOut,
 )
+from app.ml.judge import get_judge
 from app.services.interview import (
+    AnalysisInput,
     InterviewError,
     advance,
     build_report,
     complete_interview,
+    score_answer,
     start_interview,
 )
+from app.services.interview_scoring import SpeechSignal
 
 log = logging.getLogger("sankhya.api.interview")
 router = APIRouter(prefix="/interviews", tags=["interview"])
@@ -288,6 +293,105 @@ def correct_transcript(
         "answer_id": answer.id,
         "transcript": answer.transcript,
         "rejudging": payload.rejudge,
+    }
+
+
+@router.post("/{interview_id}/answers/{answer_id}/written", response_model=dict)
+def submit_written_answer(
+    interview_id: int,
+    answer_id: int,
+    payload: WrittenAnswerIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Answer in writing instead of speaking, and score it immediately.
+
+    The spoken path needs a speech worker beside a GPU to turn audio into a
+    transcript. Where that does not exist, the alternative is not "no interview"
+    — the Knowledge and Structure axes are judged from the transcript either
+    way, and a typed answer is a transcript that needed no recognition.
+
+    **Fluency and confidence are left unscored, not defaulted.** They are
+    measured from speech — pace against the officer's own baseline, filler rate,
+    pauses — and none of that exists in typed text. Recording a neutral 3.0
+    would be inventing a measurement, and this platform derives every level from
+    evidence that actually happened.
+
+    Scoring runs inline rather than through the queue. It is one model call with
+    no audio to process, so there is nothing to wait on and no worker to depend
+    on.
+    """
+    interview = _load_interview(db, interview_id, user)
+    if interview.user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This is not your interview")
+
+    answer = _load_answer(db, interview, answer_id)
+    if answer.status == AnswerStatus.SCORED:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This answer has already been scored"
+        )
+
+    text = payload.answer.strip()
+
+    # Recorded as `transcript_raw` too: it is the original the officer supplied,
+    # and leaving it empty would make the transcript-correction diff meaningless.
+    answer.transcript_raw = text
+    answer.transcript_confirmed = text
+    answer.status = AnswerStatus.TRANSCRIBED
+
+    question = answer.question
+    verdict = get_judge().score(
+        question.prompt if question else "",
+        list(question.expected_points or []) if question else [],
+        text,
+    )
+
+    data = AnalysisInput(
+        transcript=text,
+        # Everything speech-derived stays at its zero value, and
+        # `score_fluency`/`score_confidence` return None rather than a number
+        # when there is nothing to measure.
+        signal=SpeechSignal(words=len(text.split())),
+        fillers=[],
+        pauses={},
+        prosody={},
+        duration=0.0,
+        warnings=["Typed answer — delivery axes are not measurable from text."],
+        spoken=False,
+    )
+    score_answer(db, answer, data, verdict)
+
+    write_audit(
+        db,
+        action="interview.written_answer",
+        actor_user_id=user.id,
+        entity_type="interview_answer",
+        entity_id=str(answer.id),
+        meta={"chars": len(text), "model": verdict.model_name, "degraded": verdict.degraded},
+        request=request,
+    )
+    db.commit()
+    db.refresh(answer)
+
+    return {
+        "answer_id": answer.id,
+        "status": answer.status.value,
+        "scored": {
+            "knowledge": answer.score.knowledge if answer.score else None,
+            "structure": answer.score.structure if answer.score else None,
+            "communication": answer.score.communication if answer.score else None,
+            "fluency": answer.score.fluency if answer.score else None,
+            "confidence": answer.score.confidence if answer.score else None,
+        },
+        "covered_points": verdict.covered_points,
+        "missed_points": verdict.missed_points,
+        "model": verdict.model_name,
+        "degraded": verdict.degraded,
+        "note": (
+            "Fluency and confidence are measured from speech and are not scored "
+            "for a typed answer."
+        ),
     }
 
 
