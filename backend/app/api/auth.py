@@ -412,6 +412,17 @@ def request_otp(
 
     issued = otp_store.issue(payload.email)
 
+    if issued.unavailable:
+        # Named plainly rather than hidden behind the neutral message: this is
+        # not about whether the account exists, and the officer needs to know
+        # to use a different method rather than wait for an email that will
+        # never arrive.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Email codes are temporarily unavailable. Sign in with your password "
+            "or an authenticator app instead.",
+        )
+
     if issued.quota_exceeded:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
