@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -35,6 +37,7 @@ from app.schemas import (
 )
 from app.services import lift as lift_service
 from app.services import report as report_service
+from app.services.journey import build_journey
 from app.services.competency import (
     DEFAULT_LEVEL,
     MIN_WEIGHT_FOR_CONFIDENT_LEVEL,
@@ -141,6 +144,24 @@ def officer_skill_twin(
     viewer: User = Depends(get_current_user),
 ) -> SkillTwinOut:
     return _build_skill_twin(db, _resolve_target(db, viewer, user_id))
+
+
+@router.get("/journey/me")
+def my_journey(
+    target_role_id: int | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Assessment and interview together, with a roadmap to the next role.
+
+    Composed from evidence that already exists rather than computed afresh, so
+    the numbers here are the same ones the dashboard shows. Where the two
+    methods disagree the disagreement is reported, not averaged — a quiz score
+    of L4 and an interview score of L2 on one competency says something a mean
+    would erase.
+    """
+    journey = build_journey(db, user=user, target_role_id=target_role_id)
+    return asdict(journey)
 
 
 @router.get("/gaps/me", response_model=list[GapOut])
