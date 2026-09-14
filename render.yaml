@@ -37,8 +37,12 @@ services:
       - key: DATABASE_URL
         sync: false
 
-      # Upstash Redis, rediss:// (two s — TLS). Used for sign-in codes and rate
-      # limiting; the limiter fails open if it is unreachable.
+      # Upstash Redis, rediss:// (two s — TLS). OPTIONAL: leave it blank to
+      # start. Password and authenticator sign-in, the whole dashboard, and
+      # every analytics screen work without it — the rate limiter fails open
+      # and email codes report themselves unavailable rather than erroring.
+      # Add it before real traffic: without it there is no brake on password
+      # guessing.
       - key: REDIS_URL
         sync: false
 
