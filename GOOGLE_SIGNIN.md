@@ -19,7 +19,10 @@ the wrong one is the most common way to lose twenty minutes here.
 
 ## 2 · Configure the consent screen
 
-**APIs & Services** → **OAuth consent screen**.
+**Google Auth Platform** → **Overview**, and fill in the branding prompt it
+opens with. (On the older console this lived under *APIs & Services → OAuth
+consent screen*; Google has since split it across **Branding**, **Audience** and
+**Data access** in the left nav.)
 
 | Field | Value |
 |---|---|
@@ -28,11 +31,9 @@ the wrong one is the most common way to lose twenty minutes here.
 | User support email | your address |
 | Developer contact | your address |
 
-**Scopes** → Add or Remove Scopes → tick `.../auth/userinfo.email`,
-`.../auth/userinfo.profile`, `openid`. Nothing else: this only needs to know
-who signed in.
-
-Save through to the end.
+Then **Data access** → *Add or remove scopes* → tick
+`.../auth/userinfo.email`, `.../auth/userinfo.profile`, `openid`. Nothing else:
+this only needs to know who signed in.
 
 ### The bit that catches people
 
@@ -40,15 +41,18 @@ A new app sits in **Testing** status, where **only accounts you list as test
 users can sign in**. Everyone else gets "access blocked" with no useful
 explanation.
 
+Open **Audience** in the left nav:
+
 - **Demo or hackathon** → stay in Testing and add the accounts that will be
-  demoing under **Audience** → **Test users**. Up to 100.
+  demoing under **Test users**. Up to 100.
 - **Real users** → **Publish app**. An app requesting only email and profile is
   not subject to Google's verification review, so this takes effect immediately.
 
 ## 3 · Create the credential
 
-**APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client
-ID** → Application type: **Web application**.
+**Clients** in the left nav → **Create OAuth client** → Application type:
+**Web application**. (Older console: *APIs & Services → Credentials → Create
+Credentials → OAuth client ID*.)
 
 Under **Authorised JavaScript origins**, add every origin the sign-in page is
 served from:
