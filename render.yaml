@@ -81,8 +81,12 @@ services:
       - key: EMAIL_FROM
         value: SANKHYA <onboarding@resend.dev>
 
+      # Empty = any address may sign in, which is what a public demo needs.
+      # A real MoSPI deployment sets this to `gov.in,nic.in`: the platform holds
+      # officers' competency records, so an arbitrary address should not be able
+      # to create one. Suffix-matched, so `gov.in` also admits `mospi.gov.in`.
       - key: ALLOWED_EMAIL_DOMAINS
-        value: gov.in,nic.in
+        value: ""
 
       # --- Google Sign-In ---------------------------------------------------- #
       # The OAuth client ID from console.cloud.google.com. Public by design: it
