@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlalchemy import Float, and_, case, cast, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.ml import irt
 from app.models import (
@@ -49,7 +49,7 @@ from app.models import (
     User,
     UserRole,
 )
-from app.models_interview import Interview, InterviewStatus
+from app.models_interview import Interview, InterviewAnswer, InterviewStatus
 from app.models_learning import Course, CourseCompletion
 from app.models_quiz import AttemptStatus, QuizAttempt
 from app.services import adaptive_quiz
@@ -463,15 +463,22 @@ def _assessment_rows(db: Session, user: User) -> list[dict]:
     shows whether the estimate was well determined or whether the bank simply
     ran out of items near them.
     """
+    # `trace()` walks `attempt.responses`, which lazy-loads one query per
+    # attempt — forty of them for an officer who has been assessed regularly.
+    # Eager loading turns that into one.
     attempts = db.scalars(
         select(QuizAttempt)
         .where(
             QuizAttempt.user_id == user.id,
             QuizAttempt.status == AttemptStatus.SUBMITTED,
         )
+        .options(
+            selectinload(QuizAttempt.responses),
+            joinedload(QuizAttempt.competency),
+        )
         .order_by(QuizAttempt.submitted_at.desc())
         .limit(40)
-    ).all()
+    ).unique().all()
 
     rows = []
     for attempt in attempts:
@@ -499,12 +506,17 @@ def _assessment_rows(db: Session, user: User) -> list[dict]:
 
 
 def _interview_rows(db: Session, user: User) -> list[dict]:
+    # The heaviest path on this page if left lazy: one query for each
+    # interview's answers, then one more for every answer's score. Twenty
+    # interviews of six answers is a hundred and forty queries to render a card
+    # that shows three numbers.
     interviews = db.scalars(
         select(Interview)
         .where(Interview.user_id == user.id)
+        .options(selectinload(Interview.answers).joinedload(InterviewAnswer.score))
         .order_by(Interview.started_at.desc())
         .limit(20)
-    ).all()
+    ).unique().all()
 
     rows = []
     for interview in interviews:
@@ -563,9 +575,10 @@ def _evidence_rows(db: Session, user: User, limit: int = 120) -> list[dict]:
     rows = db.scalars(
         select(ProficiencyEvidence)
         .where(ProficiencyEvidence.user_id == user.id)
+        .options(joinedload(ProficiencyEvidence.competency))
         .order_by(ProficiencyEvidence.created_at.desc())
         .limit(limit)
-    ).all()
+    ).unique().all()
     return [
         {
             "id": ev.id,

@@ -92,7 +92,7 @@ Unit tests need no database or containers:
 cd backend && python -m pytest
 ```
 
-339 cases covering the IRT engine and its ability recovery, the
+340 cases covering the IRT engine and its ability recovery, the
 reliability model, auth primitives, delivery scoring, judge output handling,
 citation verification, the ranking signals, the promotion simulator, adaptive
 question selection and disclosure control in the analytics.

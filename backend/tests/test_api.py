@@ -476,3 +476,77 @@ class TestAdminLearnerRecords:
             ).scalar_one()
 
         assert after == before + 1
+
+
+class TestAdminRecordQueryCost:
+    """The officer record must not cost more to render the more an officer has
+    done.
+
+    Every relationship this page walks — an attempt's responses, an interview's
+    answers, each answer's score — lazy-loads one query per row by default. It
+    is invisible on seed data and quadratic in irritation on a real deployment:
+    twenty interviews of six answers is a hundred and forty queries to draw a
+    card showing three numbers. Asserted rather than trusted, because removing
+    an `selectinload` breaks nothing that a functional test would notice.
+    """
+
+    def _count_queries(self, fn):
+        from sqlalchemy import event
+
+        from app.db import engine
+
+        seen = {"n": 0}
+
+        def _tick(*_args, **_kwargs):
+            seen["n"] += 1
+
+        event.listen(engine, "before_cursor_execute", _tick)
+        try:
+            fn()
+        finally:
+            event.remove(engine, "before_cursor_execute", _tick)
+        return seen["n"]
+
+    def test_rendering_a_record_does_not_scale_with_the_officers_history(self):
+        from sqlalchemy import func, select
+
+        from app.db import SessionLocal
+        from app.models import User
+        from app.models_quiz import AttemptStatus, QuizAttempt
+        from app.services import admin as admin_service
+
+        db = SessionLocal()
+        try:
+            busiest = db.execute(
+                select(QuizAttempt.user_id, func.count())
+                .where(QuizAttempt.status == AttemptStatus.SUBMITTED)
+                .group_by(QuizAttempt.user_id)
+                .order_by(func.count().desc())
+                .limit(1)
+            ).first()
+            if busiest is None:
+                pytest.skip("no submitted assessments in this database")
+
+            user_id, attempts = busiest
+            officer = db.get(User, user_id)
+
+            detail = None
+
+            def render():
+                nonlocal detail
+                db.expire_all()
+                detail = admin_service.learner_detail(db, user=officer)
+
+            queries = self._count_queries(render)
+
+            # The bound is a fixed number of statements, not a function of how
+            # much this officer has done — which is the whole property. Left
+                # lazy, the same call runs roughly one query per attempt, per
+            # interview and per interview answer on top of this.
+            assert queries < 40, (
+                f"{queries} queries for an officer with {attempts} assessments "
+                f"and {len(detail.evidence)} evidence rows — an eager load has "
+                f"probably been dropped"
+            )
+        finally:
+            db.close()
