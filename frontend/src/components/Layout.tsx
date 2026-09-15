@@ -131,6 +131,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-col">
+      {/* Rendered here rather than inside the shared header so the bypass link
+          is the first focusable element of every signed-in page. */}
+      <a href="#main" className="skip-link">
+        {t("nav.skipToContent")}
+      </a>
       <header className="no-print">
         <MinistryStrip />
         <BrandBar
