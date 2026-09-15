@@ -53,3 +53,6 @@ data/*.pdf
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Host venv for the speech worker
+backend/.venv/
