@@ -32,6 +32,7 @@ from app.models_interview import (
 )
 from app.services.adaptive import decide_next, evidence_confidence
 from app.services.coaching import build_coaching
+from app.services.technical_terms import analyse_terms
 from app.services.competency import analyse_gaps, record_interview_evidence
 from app.services.interview_scoring import (
     Baseline,
@@ -286,7 +287,42 @@ def _write_evidence(db: Session, answer: InterviewAnswer, knowledge: float,
     )
 
 
-def score_answer(db: Session, answer: InterviewAnswer, data: AnalysisInput, verdict) -> AnswerScore:
+# How the Knowledge score is grounded. See `grounded_knowledge`.
+GROUNDED_WEIGHT = 0.6
+MISTAKE_PENALTY = 0.5
+
+
+def grounded_knowledge(
+    model_knowledge: float, covered: int, expected: int, mistakes: int
+) -> tuple[float, float | None]:
+    """Anchor the Knowledge score to what the system verified for itself.
+
+    A 3B judge was measured reporting three of four expected points covered and
+    scoring Knowledge 1.0 in the same breath. A rating that contradicts the
+    coverage and mistakes printed next to it is one an officer cannot trust, and
+    this number becomes competency evidence. So the score leans on two things
+    that are checked rather than asserted — coverage reconciled against the
+    approved rubric, and mistakes grounded against it — and keeps the model's
+    judgement as the minority share, for what the rubric cannot see.
+
+    A verified mistake costs more than an omission: half a level each, because a
+    confidently wrong statement is what a colleague repeats.
+
+    Returns (knowledge, grounded_component). With no expected points there is
+    nothing to ground against, and the model's score stands alone.
+    """
+    if expected <= 0:
+        return model_knowledge, None
+    grounded = 1.0 + 4.0 * (covered / expected) - MISTAKE_PENALTY * mistakes
+    grounded = max(1.0, min(5.0, grounded))
+    blended = GROUNDED_WEIGHT * grounded + (1 - GROUNDED_WEIGHT) * model_knowledge
+    return round(max(1.0, min(5.0, blended)), 2), round(grounded, 2)
+
+
+def score_answer(
+    db: Session, answer: InterviewAnswer, data: AnalysisInput, verdict,
+    mistakes: list[dict] | None = None,
+) -> AnswerScore:
     """Assemble the five axes and write Knowledge through to the Skill Twin."""
     interview = answer.interview
     _store_metrics(db, answer, data)
@@ -306,8 +342,20 @@ def score_answer(db: Session, answer: InterviewAnswer, data: AnalysisInput, verd
         score = AnswerScore()
         answer.score = score
 
-    score.knowledge = verdict.knowledge
+    mistakes = mistakes or []
+    question = answer.question
+    expected = len(question.expected_points or []) if question else 0
+    if verdict.degraded:
+        # Output that could not be parsed is not graded more kindly for having
+        # an empty coverage list. Its confidence is 0; it moves nobody's level.
+        knowledge, grounded = verdict.knowledge, None
+    else:
+        knowledge, grounded = grounded_knowledge(
+            verdict.knowledge, len(verdict.covered_points or []), expected, len(mistakes)
+        )
+    score.knowledge = knowledge
     score.knowledge_confidence = verdict.knowledge_confidence
+    score.mistakes = mistakes
     score.structure = verdict.structure
     score.communication = verdict.communication
     score.fluency = delivery.fluency
@@ -316,6 +364,15 @@ def score_answer(db: Session, answer: InterviewAnswer, data: AnalysisInput, verd
     score.missed_points = verdict.missed_points
     score.rationale = {
         **(verdict.reasons or {}),
+        # How the Knowledge score was reached, so it can be checked rather than
+        # taken on trust.
+        "knowledge_basis": {
+            "model": verdict.knowledge,
+            "grounded": grounded,
+            "covered": len(verdict.covered_points or []),
+            "expected": expected,
+            "mistakes": len(mistakes),
+        },
         "delivery_notes": delivery.notes,
         "pipeline_warnings": data.warnings,
         "degraded": verdict.degraded,
@@ -448,6 +505,16 @@ def build_report(
             } if score else None,
             "covered_points": score.covered_points if score else [],
             "missed_points": score.missed_points if score else [],
+            # Sentences the officer said that contradict an approved expected
+            # point, each with that point as the correction.
+            "mistakes": (score.mistakes or []) if score else [],
+            # Computed here rather than stored, so a corrected transcript is
+            # always matched against its current wording.
+            "technical_terms": analyse_terms(
+                answer.transcript or "",
+                competency.code if competency else None,
+                list(question.expected_points or []),
+            ).as_dict(),
             "rationale": score.rationale if score else None,
             # Everything the fumble timeline needs: where the hesitation was,
             # not merely how much of it there was.
@@ -479,6 +546,9 @@ def build_report(
                 "head_stability": attention.head_stability,
                 "face_present_ratio": attention.face_present_ratio,
                 "frames_analysed": attention.frames_analysed,
+                "hands_visible_ratio": attention.hands_visible_ratio,
+                "hand_movement": attention.hand_movement,
+                "face_touch_count": attention.face_touch_count,
                 "quality": attention.quality,
                 "for_officer": True,
                 "scored": False,

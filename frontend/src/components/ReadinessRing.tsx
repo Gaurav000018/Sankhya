@@ -74,10 +74,9 @@ export function ReadinessRing({
           fill="none"
           stroke={stroke}
           strokeWidth="7"
-          strokeLinecap="round"
+          strokeLinecap="butt"
           pathLength="100"
           strokeDasharray={`${shown} 100`}
-          style={{ filter: `drop-shadow(0 0 5px ${stroke})` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">

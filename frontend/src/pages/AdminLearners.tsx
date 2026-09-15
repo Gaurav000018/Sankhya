@@ -4,7 +4,17 @@ import { ApiError, api } from "../api";
 import { AbilityTrace } from "../components/AbilityScale";
 import type { TraceStep } from "../components/AbilityScale";
 import { PageHeader } from "../components/Layout";
-import { Card, Empty, ErrorNote, LevelBar, Note, Spinner, StatTile, StatusPill } from "../components/ui";
+import {
+  btnSecondary,
+  Card,
+  Empty,
+  ErrorNote,
+  LevelBar,
+  Note,
+  Spinner,
+  StatTile,
+  StatusPill,
+} from "../components/ui";
 import { usePageTitle } from "../hooks/usePageTitle";
 import type { GapStatus } from "../types";
 
@@ -414,18 +424,32 @@ export function AdminLearners() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+            {/* The portal shell puts a sidebar beside the content, so this
+                table has about 810px rather than the full page. Nine columns do
+                not fit that; rather than scroll them sideways — where the last
+                two are simply invisible with nothing to say so — the two
+                secondary ones drop out below a wide viewport. */}
+            {/* `table-fixed` rather than the default auto layout: with auto,
+                a long division name widens its column and `max-w` on the cell is
+                only advisory, so the table grows past its container and the
+                right-hand columns clip with nothing to say so. Fixed widths make
+                truncation actually truncate. */}
+            <table className="w-full table-fixed border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-rule text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
-                  <th className="pb-2 font-semibold">Officer</th>
-                  <th className="pb-2 font-semibold">Division</th>
-                  <th className="pb-2 font-semibold">FRAC role</th>
-                  <th className="pb-2 text-right font-semibold">Readiness</th>
-                  <th className="pb-2 text-right font-semibold">Measured</th>
-                  <th className="pb-2 text-right font-semibold">Critical</th>
+                  <th className="w-[23%] pb-2 font-semibold">Officer</th>
+                  <th className="w-[16%] pb-2 font-semibold">Division</th>
+                  <th className="w-[14%] pb-2 font-semibold">FRAC role</th>
+                  <th className="w-[10%] pb-2 pr-3 text-right font-semibold">Readiness</th>
+                  <th className="w-[9%] pb-2 pr-3 text-right font-semibold">Measured</th>
+                  <th className="w-[8%] pb-2 pr-3 text-right font-semibold">Critical</th>
                   <th className="pb-2 font-semibold">Widest gap</th>
-                  <th className="pb-2 text-right font-semibold">Evidence</th>
-                  <th className="pb-2 text-right font-semibold">Last seen</th>
+                  <th className="hidden pb-2 text-right font-semibold xl:table-cell">
+                    Evidence
+                  </th>
+                  <th className="hidden pb-2 text-right font-semibold xl:table-cell">
+                    Last seen
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-rule">
@@ -441,14 +465,29 @@ export function AdminLearners() {
                           e.stopPropagation();
                           setSelected(row.user_id);
                         }}
-                        className="text-left font-medium hover:text-accent"
+                        className="block max-w-full truncate text-left font-medium hover:text-accent"
+                        title={row.full_name}
                       >
                         {row.full_name}
                       </button>
-                      <div className="text-[11px] text-ink-3">{row.email}</div>
+                      <div className="truncate text-[11px] text-ink-3" title={row.email}>
+                        {row.email}
+                      </div>
                     </td>
-                    <td className="py-2.5 pr-3 text-ink-2">{row.division ?? "—"}</td>
-                    <td className="py-2.5 pr-3 text-ink-2">{row.frac_role ?? "No role assigned"}</td>
+                    {/* Truncated with the full text on hover: division and role
+                        names run long enough to push the table past the column
+                        on their own, and clipping the last column is worse than
+                        clipping a name the row already identifies. */}
+                    <td className="py-2.5 pr-3 text-ink-2">
+                      <span className="block truncate" title={row.division ?? undefined}>
+                        {row.division ?? "—"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3 text-ink-2">
+                      <span className="block truncate" title={row.frac_role ?? undefined}>
+                        {row.frac_role ?? "No role assigned"}
+                      </span>
+                    </td>
                     <td className="tabular py-2.5 pr-3 text-right font-mono font-semibold">
                       {row.readiness}%
                     </td>
@@ -467,20 +506,22 @@ export function AdminLearners() {
                     </td>
                     <td className="py-2.5 pr-3 text-ink-2">
                       {row.widest_gap_competency ? (
-                        <>
-                          <span className="truncate">{row.widest_gap_competency}</span>
-                          <span className="tabular ml-1.5 font-mono text-[11px] text-ink-3">
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="truncate" title={row.widest_gap_competency}>
+                            {row.widest_gap_competency}
+                          </span>
+                          <span className="tabular shrink-0 font-mono text-[11px] text-ink-3">
                             −{row.widest_gap}
                           </span>
-                        </>
+                        </span>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="tabular py-2.5 pr-3 text-right font-mono text-ink-3">
+                    <td className="tabular hidden py-2.5 pr-3 text-right font-mono text-ink-3 xl:table-cell">
                       {row.demonstrated_count}/{row.evidence_count}
                     </td>
-                    <td className="py-2.5 text-right text-[11.5px] text-ink-3">
+                    <td className="hidden py-2.5 text-right text-[11.5px] text-ink-3 xl:table-cell">
                       {when(row.last_activity)}
                     </td>
                   </tr>
@@ -552,7 +593,7 @@ function LearnerRecord({
         action={
           <button
             onClick={onBack}
-            className="border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-ink"
+            className={btnSecondary}
           >
             Back to roster
           </button>

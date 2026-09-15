@@ -40,6 +40,21 @@ const LOOK_AWAY_SECONDS = 1.5;
 
 const BLINK_THRESHOLD = 0.5;
 
+const HAND_MODEL_PATH = "/mediapipe/models/hand_landmarker.task";
+
+// Hands are checked on every other tick, about five times a second. Gestures
+// change slowly compared with gaze, and two landmarkers at full rate on a
+// laptop CPU compete with the recording itself.
+const HAND_EVERY_N_TICKS = 2;
+
+// Wrist travel, in normalised frame units per hand sample, that counts as
+// fully animated. Calibrated so ordinary explanatory gesturing lands mid-scale.
+const ANIMATED_WRIST_TRAVEL = 0.05;
+
+// MediaPipe hand landmark indices: wrist, then thumb, index and middle tips.
+const WRIST = 0;
+const FINGERTIPS = [4, 8, 12];
+
 interface Accumulator {
   frames: number;
   facePresent: number;
@@ -49,12 +64,23 @@ interface Accumulator {
   lookAwayRuns: number[];
   currentRun: number;
   headPositions: { x: number; y: number }[];
+  // Gestures
+  handTicks: number;
+  handsVisible: number;
+  lastWrists: { x: number; y: number }[];
+  wristTravel: number;
+  wristSamples: number;
+  faceTouches: number;
+  wasTouching: boolean;
+  faceBox: { minX: number; maxX: number; minY: number; maxY: number } | null;
 }
 
 function emptyAccumulator(): Accumulator {
   return {
     frames: 0, facePresent: 0, onScreen: 0, blinks: 0, wasBlinking: false,
     lookAwayRuns: [], currentRun: 0, headPositions: [],
+    handTicks: 0, handsVisible: 0, lastWrists: [], wristTravel: 0, wristSamples: 0,
+    faceTouches: 0, wasTouching: false, faceBox: null,
   };
 }
 
@@ -71,6 +97,9 @@ export function useFaceMesh() {
   const [livePresent, setLivePresent] = useState<boolean | null>(null);
 
   const landmarkerRef = useRef<unknown>(null);
+  // Optional. If the hand model fails to load, gaze tracking carries on alone.
+  const handLandmarkerRef = useRef<unknown>(null);
+  const tickRef = useRef(0);
   const timerRef = useRef<number | null>(null);
   const accRef = useRef<Accumulator>(emptyAccumulator());
 
@@ -90,6 +119,17 @@ export function useFaceMesh() {
         runningMode: "VIDEO",
         numFaces: 1,
       });
+      try {
+        handLandmarkerRef.current = await vision.HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: HAND_MODEL_PATH, delegate: "GPU" },
+          runningMode: "VIDEO",
+          numHands: 2,
+        });
+      } catch {
+        // Gestures are the least important signal here; losing them must not
+        // take gaze tracking down too.
+        handLandmarkerRef.current = null;
+      }
       setReady(true);
       setSupported(true);
       return true;
@@ -107,6 +147,61 @@ export function useFaceMesh() {
     }
   }, []);
 
+  /** One hand sample. Called from the tick, every HAND_EVERY_N_TICKS. */
+  const sampleHands = useCallback(
+    (
+      hands: { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: { x: number; y: number }[][] } },
+      video: HTMLVideoElement,
+    ) => {
+      const acc = accRef.current;
+      acc.handTicks += 1;
+      let result;
+      try {
+        result = hands.detectForVideo(video, performance.now());
+      } catch {
+        return;
+      }
+      const found = result.landmarks ?? [];
+      if (found.length === 0) {
+        acc.lastWrists = [];
+        acc.wasTouching = false;
+        return;
+      }
+      acc.handsVisible += 1;
+
+      // Movement: how far each wrist travelled since the last sample. Matched
+      // by order, which is stable enough over two hundred milliseconds.
+      const wrists = found.map((hand) => hand[WRIST]).filter(Boolean);
+      wrists.forEach((wrist, i) => {
+        const previous = acc.lastWrists[i];
+        if (previous) {
+          acc.wristTravel += Math.hypot(wrist.x - previous.x, wrist.y - previous.y);
+          acc.wristSamples += 1;
+        }
+      });
+      acc.lastWrists = wrists;
+
+      // A fingertip inside the face box, padded a little. Counted on the way
+      // in, so a hand resting on the chin is one touch, not twenty.
+      const box = acc.faceBox;
+      let touching = false;
+      if (box) {
+        const padX = (box.maxX - box.minX) * 0.1;
+        const padY = (box.maxY - box.minY) * 0.1;
+        touching = found.some((hand) =>
+          FINGERTIPS.some((index) => {
+            const tip = hand[index];
+            return tip && tip.x >= box.minX - padX && tip.x <= box.maxX + padX &&
+              tip.y >= box.minY - padY && tip.y <= box.maxY + padY;
+          }),
+        );
+      }
+      if (touching && !acc.wasTouching) acc.faceTouches += 1;
+      acc.wasTouching = touching;
+    },
+    [],
+  );
+
   const start = useCallback((video: HTMLVideoElement) => {
     const landmarker = landmarkerRef.current as {
       detectForVideo: (v: HTMLVideoElement, t: number) => {
@@ -117,11 +212,19 @@ export function useFaceMesh() {
     if (!landmarker) return;
 
     accRef.current = emptyAccumulator();
+    tickRef.current = 0;
+    const hands = handLandmarkerRef.current as {
+      detectForVideo: (v: HTMLVideoElement, t: number) => {
+        landmarks: { x: number; y: number }[][];
+      };
+    } | null;
 
     timerRef.current = window.setInterval(() => {
       if (video.readyState < 2) return;
       const acc = accRef.current;
       acc.frames += 1;
+      tickRef.current += 1;
+      if (hands && tickRef.current % HAND_EVERY_N_TICKS === 0) sampleHands(hands, video);
 
       let result;
       try {
@@ -169,8 +272,17 @@ export function useFaceMesh() {
       // Nose tip, for how much the head moved overall.
       const nose = landmarks[1];
       if (nose) acc.headPositions.push({ x: nose.x, y: nose.y });
+
+      let minX = 1, maxX = 0, minY = 1, maxY = 0;
+      for (const point of landmarks) {
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+      }
+      acc.faceBox = { minX, maxX, minY, maxY };
     }, SAMPLE_INTERVAL_MS);
-  }, []);
+  }, [sampleHands]);
 
   const stop = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -219,6 +331,15 @@ export function useFaceMesh() {
       head_stability: stability === null ? null : Number(stability.toFixed(3)),
       face_present_ratio: Number(facePresentRatio.toFixed(3)),
       frames_analysed: acc.frames,
+      // Null when hand tracking never ran, so "no gesture data" is never
+      // reported as "kept perfectly still".
+      hands_visible_ratio: acc.handTicks > 0
+        ? Number((acc.handsVisible / acc.handTicks).toFixed(3))
+        : null,
+      hand_movement: acc.wristSamples > 0
+        ? Number(Math.min(1, acc.wristTravel / acc.wristSamples / ANIMATED_WRIST_TRAVEL).toFixed(3))
+        : null,
+      face_touch_count: acc.handTicks > 0 ? acc.faceTouches : null,
     };
   }, []);
 

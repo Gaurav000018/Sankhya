@@ -26,7 +26,7 @@ export function StepShell({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-rule bg-surface p-6 sm:p-8">
+    <section className="rounded border border-rule bg-surface p-6 sm:p-8">
       <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
         {eyebrow}
       </div>
@@ -54,7 +54,7 @@ export function PrimaryButton({
     <button
       onClick={onClick}
       disabled={disabled || busy}
-      className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-40"
+      className="rounded bg-accent px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent-strong disabled:opacity-40"
     >
       {busy ? "Working…" : children}
     </button>
@@ -84,7 +84,7 @@ export function ContextStep({ onNext }: { onNext: () => void }) {
           produced it. <span className="text-ink">Nothing here is self-declared.</span>
         </p>
 
-        <div className="rounded-lg border border-rule bg-surface-2 p-5">
+        <div className="rounded border border-rule bg-surface-2 p-5">
           <div className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
             What happens next
           </div>
@@ -199,7 +199,7 @@ export function DiagnosticStep({ onNext }: { onNext: () => void }) {
                         }
                         className={`tabular h-9 w-9 rounded-md border font-mono text-[13px] transition-colors ${
                           active
-                            ? "border-accent bg-accent text-ground"
+                            ? "border-accent bg-accent text-white"
                             : "border-rule-strong text-ink-2 hover:border-accent hover:text-accent"
                         }`}
                       >
@@ -365,7 +365,7 @@ export function AssessmentStep({ onNext }: { onNext: () => void }) {
               "how much of the range this resolved",
             ],
           ].map(([label, value, note]) => (
-            <div key={label} className="rounded-lg border border-rule bg-surface-2 px-4 py-3.5">
+            <div key={label} className="rounded border border-rule bg-surface-2 px-4 py-3.5">
               <div className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-ink-3">
                 {label}
               </div>
@@ -594,7 +594,7 @@ export function InterviewStep({ onNext }: { onNext: () => void }) {
 
       {question?.competency_name && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-rule-strong px-2.5 py-1 font-mono text-[10.5px] text-ink-3">
+          <span className="rounded border border-rule-strong px-2.5 py-1 font-mono text-[10.5px] text-ink-3">
             {question.competency_name}
           </span>
           {question.asked_because && (
@@ -603,7 +603,7 @@ export function InterviewStep({ onNext }: { onNext: () => void }) {
         </div>
       )}
 
-      <p className="rounded-lg border-l-2 border-accent bg-surface-2 px-4 py-3.5 text-[14.5px] leading-relaxed">
+      <p className="rounded border-l-2 border-accent bg-surface-2 px-4 py-3.5 text-[14.5px] leading-relaxed">
         {question?.question}
       </p>
 
@@ -654,7 +654,7 @@ function ScoreCard({ result }: { result: WrittenAnswerOut }) {
     ["Confidence", result.scored.confidence],
   ];
   return (
-    <div className="rounded-lg border border-rule bg-surface-2 p-4">
+    <div className="rounded border border-rule bg-surface-2 p-4">
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-5">
         {axes.map(([label, value]) => (
           <div key={label}>

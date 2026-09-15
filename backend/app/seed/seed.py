@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.models_learning import Course, CourseCompletion
 from app.seed.questions import seed_questions
+from app.seed.cited_quiz_bank import seed_cited_quiz_bank
 from app.seed.quiz_bank import seed_quiz_bank
 from app.services.competency import recompute_profile
 from app.services.igot import sync_catalogue
@@ -375,6 +376,13 @@ def seed(total_officers: int = 200) -> None:
             db.add(u)
         db.flush()
 
+        # After the accounts exist, so the SME is recorded as the reviewer.
+        # Without this the Assessment tab is dead on a fresh database: every
+        # quiz refuses to start because nothing has been through review.
+        print("Loading the assessment item bank...")
+        quiz_item_count = seed_cited_quiz_bank(db, competencies, reviewer_id=demo_users[2].id)
+        db.flush()
+
         venkatesan = demo_users[0]
 
         # Hand-set latent abilities so the demo story is stable: strong on
@@ -514,6 +522,7 @@ def seed(total_officers: int = 200) -> None:
         print(f"  Competencies      {len(COMPETENCIES)} over 4 domains")
         print(f"  Interview bank    {question_count} questions + 1 calibration")
         print(f"  Assessment bank   {mcq_count} approved MCQs across 12 competencies")
+        print(f"  Assessment bank   {quiz_item_count} cited items with source passages")
         print(f"  Course catalogue  {catalogue['total']} courses, {embedded} embedded")
         print(f"  Completions       {completions}")
         print(f"  Evidence rows     ~{evidence_total}")

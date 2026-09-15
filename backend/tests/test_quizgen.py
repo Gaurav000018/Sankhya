@@ -255,3 +255,113 @@ class TestGeneratorRetriesForAVerifiableQuote:
         result = generator.generate(self.PASSAGE, competency="Sampling", count=1,
                                     bloom="understand")
         assert all(not (c.citation_quote or "").strip() for c in result)
+
+
+class TestItemBankConventions:
+    """The shapes every seeded item has to satisfy before it reaches an officer.
+
+    None of these fail loudly in production. A miscounted rationale list shows a
+    real sentence about the wrong option; an unshuffled bank lets a test-wise
+    candidate outscore someone who knows the material; an item with no IRT
+    difficulty sits at exactly L3 with every other unparameterised item and the
+    adaptive engine quietly stops adapting. All three have happened in this
+    bank, which is why they are asserted rather than trusted.
+    """
+
+    def _items(self):
+        from app.seed.mcqs import BANK
+        from app.seed.mcqs_extended import EXTENDED, FOUNDATION
+        from app.seed.quiz_bank import _normalise
+
+        codes = sorted(set(BANK) | set(EXTENDED) | set(FOUNDATION))
+        for code in codes:
+            for item in _normalise(code):
+                yield code, item
+
+    def test_rationales_are_stored_one_per_distractor(self):
+        """`distractor_rationale` has no slot for the key — that is what the
+        field is named for, and what `ml/generator` and the judge prompt in
+        `services/quizgen` both produce."""
+        from app.seed.quiz_bank import _shuffled, to_distractor_rationales
+
+        for code, (stem, options, key, _expl, rationales, _bloom, _level) in self._items():
+            shuffled, new_key, aligned = _shuffled(
+                stem, list(options), key, list(rationales)
+            )
+            stored = to_distractor_rationales(aligned, new_key)
+            assert len(stored) == len(shuffled) - 1, f"{code}: {stem[:50]}"
+            assert all(r.strip() for r in stored), f"{code}: blank rationale in {stem[:50]}"
+
+    def test_the_shuffle_keeps_each_rationale_with_its_own_option(self):
+        """The failure this prevents is invisible: the rationale still reads as
+        a real sentence, just about a different option."""
+        from app.seed.quiz_bank import _shuffled, to_distractor_rationales
+
+        for code, (stem, options, key, _e, rationales, _b, _l) in self._items():
+            shuffled, new_key, aligned = _shuffled(
+                stem, list(options), key, list(rationales)
+            )
+            assert shuffled[new_key] == options[key], f"{code}: key moved"
+            stored = to_distractor_rationales(aligned, new_key)
+
+            # Every distractor must still carry the rationale it was authored
+            # with, matched by option text rather than by position.
+            original = {
+                options[i]: rationales[i] for i in range(len(options)) if i != key
+            }
+            position = 0
+            for index, option in enumerate(shuffled):
+                if index == new_key:
+                    continue
+                assert stored[position] == original[option], f"{code}: {option[:40]}"
+                position += 1
+
+    def test_widening_and_narrowing_round_trips(self):
+        """`align_rationales` and `to_distractor_rationales` are inverses, which
+        is what lets the two conventions meet in one place."""
+        from app.seed.quiz_bank import align_rationales, to_distractor_rationales
+
+        options = ["a", "b", "c", "d"]
+        for key in range(4):
+            distractors = [f"why {o} is wrong" for o in options if o != options[key]]
+            aligned = align_rationales(options, key, distractors)
+            assert len(aligned) == len(options)
+            assert aligned[key] == ""
+            assert to_distractor_rationales(aligned, key) == distractors
+
+    def test_the_answer_key_is_not_concentrated_on_one_option(self):
+        """Authored as written, 98% of one batch keyed to B and every item in
+        the cited bank keyed to A — an author writes the plausible distractor
+        first and the right answer second."""
+        from collections import Counter
+
+        from app.seed.quiz_bank import _shuffled
+
+        keys = Counter()
+        for _code, (stem, options, key, _e, rationales, _b, _l) in self._items():
+            _, new_key, _ = _shuffled(stem, list(options), key, list(rationales))
+            keys[new_key] += 1
+
+        total = sum(keys.values())
+        assert total > 100, "expected a bank worth checking"
+        for position, count in keys.items():
+            share = count / total
+            assert 0.15 < share < 0.35, f"option {position} holds {share:.0%} of keys"
+
+    def test_every_item_carries_a_difficulty_that_is_not_the_default(self):
+        """An item bank where every difficulty is 0.0 makes the adaptive engine
+        a random one, with nothing raised."""
+        from app.ml import irt
+        from app.seed.quiz_bank import _normalise
+
+        for code, (_s, _o, _k, _e, _r, _bloom, level) in self._items():
+            assert 1.0 <= level <= 5.0, f"{code}: level {level} off the FRAC scale"
+
+        spread = {}
+        for code, item in self._items():
+            spread.setdefault(code, []).append(irt.level_to_theta(item[6]))
+        for code, thetas in spread.items():
+            assert max(thetas) - min(thetas) > 2.0, (
+                f"{code} spans only {max(thetas) - min(thetas):.2f} theta — "
+                f"a bank clumped at one level measures one level"
+            )

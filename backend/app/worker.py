@@ -28,6 +28,7 @@ from app.config import settings
 from app.core import queue
 from app.db import SessionLocal
 from app.ml.judge import degraded_verdict, get_judge
+from app.ml.mistakes import OllamaMistakeChecker
 from app.ml.speech import analyse_answer, availability, unload_whisper
 from app.models_interview import AnswerStatus, InterviewAnswer
 from app.services.interview import AnalysisInput, apply_calibration, score_answer
@@ -170,7 +171,26 @@ def process_answer(db: Session, answer_id: int) -> None:
                 data.transcript,
             )
 
-        score_answer(db, answer, data, verdict)
+        # Mistakes are found before scoring, because a verified mistake lowers
+        # the Knowledge score. Checked one sentence against one approved expected
+        # point. Skipped for a degraded verdict — if the judge could not read
+        # the answer, a second pass pointing at errors in it would be confident
+        # about something nobody could score.
+        mistakes: list[dict] = []
+        if not verdict.degraded and question and question.expected_points:
+            queue.set_status(answer_id, "analysing", "Checking your answer for mistakes")
+            try:
+                found = OllamaMistakeChecker().find(
+                    data.transcript, list(question.expected_points)
+                )
+                mistakes = [m.as_dict() for m in found]
+                log.info("Answer %s: %d mistake(s) found against the rubric",
+                         answer_id, len(mistakes))
+            except Exception:
+                # Never worth a re-recording. Scored without mistakes instead.
+                log.warning("Mistake check failed for answer %s", answer_id, exc_info=True)
+
+        score_answer(db, answer, data, verdict, mistakes=mistakes)
         db.commit()
 
         queue.set_status(

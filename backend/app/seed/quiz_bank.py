@@ -62,8 +62,40 @@ MATERIAL_TITLE = "SANKHYA curated item bank (hand-written, pre-approved)"
 AUTHORED_DISCRIMINATION = 1.3
 
 
-def _shuffled(stem: str, options: list[str], correct_index: int, rationales: list[str]):
+def align_rationales(
+    options: list[str], correct_index: int, distractors: list[str]
+) -> list[str]:
+    """Spread per-distractor rationales across every option slot.
+
+    Two conventions meet here. `distractor_rationale` holds one entry *per
+    distractor* — three for a four-option item — which is what the field is
+    named for, what `ml/generator` emits and what the judge prompt in
+    `services/quizgen` asks a model to return. Shuffling, though, needs one
+    slot per option so a rationale travels with the option it explains.
+
+    So this is the widening, `to_distractor_rationales` is the narrowing, and
+    nothing outside this module sees the widened form.
+    """
+    aligned: list[str] = []
+    remaining = list(distractors)
+    for index in range(len(options)):
+        if index == correct_index:
+            aligned.append("")
+        else:
+            aligned.append(remaining.pop(0) if remaining else "")
+    return aligned
+
+
+def to_distractor_rationales(aligned: list[str], correct_index: int) -> list[str]:
+    """The stored form: the non-key entries, in option order."""
+    return [r for i, r in enumerate(aligned) if i != correct_index]
+
+
+def _shuffled(stem: str, options: list[str], correct_index: int, aligned: list[str]):
     """Reorder the options deterministically, carrying the key and rationales.
+
+    `aligned` is one rationale per option (blank at the key), which is what lets
+    each one move with the option it belongs to.
 
     Seeded from a hash of the stem rather than from `random` so the same item
     lands the same way on every reseed, and so two deployments of the same
@@ -78,7 +110,7 @@ def _shuffled(stem: str, options: list[str], correct_index: int, rationales: lis
     return (
         [options[i] for i in order],
         order.index(correct_index),
-        [rationales[i] for i in order] if rationales else rationales,
+        [aligned[i] for i in order] if aligned else aligned,
     )
 
 
@@ -146,7 +178,7 @@ def seed_quiz_bank(db: Session, competencies: dict[str, Competency]) -> int:
             raise KeyError(f"MCQ bank references unknown competency code {code!r}")
 
         for stem, options, key, explanation, rationales, bloom, level in _normalise(code):
-            options, key, rationales = _shuffled(stem, list(options), key, list(rationales))
+            options, key, aligned = _shuffled(stem, list(options), key, list(rationales))
             difficulty = irt.level_to_theta(level)
             char_count += len(stem)
 
@@ -159,7 +191,9 @@ def seed_quiz_bank(db: Session, competencies: dict[str, Competency]) -> int:
                     options=options,
                     correct_index=key,
                     explanation=explanation,
-                    distractor_rationale=rationales,
+                    # Stored in the codebase's convention: one entry per
+                    # distractor, in option order, with no slot for the key.
+                    distractor_rationale=to_distractor_rationales(aligned, key),
                     bloom_level=bloom,
                     # Approved on purpose: an author writing these deliberately is
                     # the review a generated item needs. The reviewer is recorded

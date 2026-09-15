@@ -46,7 +46,7 @@ const en = {
 
   // Document titles (WCAG 2.4.2) — translated too, or a Hindi speaker gets a
   // Hindi page in an English tab.
-  "title.landing": "Workforce intelligence",
+  "title.landing": "Competency Management Portal",
   "title.dashboard": "Dashboard",
   "title.learners": "Officer records",
   "title.journey": "Measure where you stand",
@@ -84,9 +84,9 @@ const en = {
   "status.met": "Met",
 
   // Sign in
-  "login.heading": "Workforce competency intelligence",
+  "login.heading": "Officer sign in",
   "login.intro":
-    "For officers of India's Official Statistical System. Competency here is derived from evidence, not declared.",
+    "Sign in with your official email to view your competency record, assessments and development plan.",
   "login.method.password": "Password",
   "login.method.otp": "Email code",
   "login.method.totp": "Authenticator",
@@ -183,7 +183,7 @@ const hi: Partial<Record<MessageKey, string>> = {
   "role.sme": "विषय विशेषज्ञ",
   "role.admin": "प्रशासक",
 
-  "title.landing": "कार्यबल आसूचना",
+  "title.landing": "दक्षता प्रबंधन पोर्टल",
   "title.dashboard": "डैशबोर्ड",
   "title.journey": "अपनी स्थिति मापें",
   "title.learning": "विकास योजना",
@@ -218,9 +218,9 @@ const hi: Partial<Record<MessageKey, string>> = {
   "status.near_target": "लक्ष्य के निकट",
   "status.met": "पूर्ण",
 
-  "login.heading": "कार्यबल दक्षता आसूचना",
+  "login.heading": "अधिकारी साइन इन",
   "login.intro":
-    "भारत की राष्ट्रीय सांख्यिकी प्रणाली के अधिकारियों के लिए। यहाँ दक्षता साक्ष्य से निकाली जाती है, घोषित नहीं की जाती।",
+    "अपना दक्षता अभिलेख, आकलन और विकास योजना देखने के लिए अपने आधिकारिक ईमेल से साइन इन करें।",
   "login.method.password": "पासवर्ड",
   "login.method.otp": "ईमेल कोड",
   "login.method.totp": "प्रमाणक ऐप",

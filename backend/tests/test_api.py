@@ -251,6 +251,52 @@ class TestQuiz:
         assert any(q["correct_index"] is not None for q in approved)
 
 
+class TestCameraAndGestureSubmission:
+    """Exercised over HTTP. The endpoint once raised on every call — a bad
+    keyword to the audit writer — and nothing noticed, because every earlier
+    check wrote camera rows straight into the database."""
+
+    PAYLOAD = {
+        "screen_gaze_ratio": 0.7, "longest_look_away_seconds": 3.0, "look_away_count": 1,
+        "blink_rate_per_minute": 17.0, "head_stability": 0.8, "face_present_ratio": 0.9,
+        "frames_analysed": 300, "hands_visible_ratio": 0.6, "hand_movement": 0.4,
+        "face_touch_count": 2, "consent_version": "camera-coaching-v1",
+    }
+
+    def _open(self, client, learner):
+        interview = client.post("/interviews", json={}, headers=learner)
+        if interview.status_code != 201:
+            pytest.skip("no interview question bank in this database")
+        body = interview.json()
+        return body["interview_id"], body["questions"][0]["answer_id"]
+
+    def test_the_officer_can_submit_camera_and_gesture_aggregates(self, client, learner):
+        interview_id, answer_id = self._open(client, learner)
+        response = client.post(
+            f"/interviews/{interview_id}/answers/{answer_id}/attention",
+            json=self.PAYLOAD, headers=learner,
+        )
+        assert response.status_code == 202, response.text
+        assert response.json()["quality"] == "good"
+
+    def test_an_out_of_range_aggregate_is_refused(self, client, learner):
+        """Aggregates are validated at the schema, not trusted from the browser."""
+        interview_id, answer_id = self._open(client, learner)
+        response = client.post(
+            f"/interviews/{interview_id}/answers/{answer_id}/attention",
+            json={**self.PAYLOAD, "face_touch_count": -1}, headers=learner,
+        )
+        assert response.status_code == 422
+
+    def test_a_supervisor_cannot_submit_on_an_officers_behalf(self, client, learner, supervisor):
+        interview_id, answer_id = self._open(client, learner)
+        response = client.post(
+            f"/interviews/{interview_id}/answers/{answer_id}/attention",
+            json=self.PAYLOAD, headers=supervisor,
+        )
+        assert response.status_code in (403, 404)
+
+
 class TestInterviewContract:
     def test_no_composite_score_field_exists(self, client, learner):
         interview = client.post("/interviews", json={}, headers=learner)

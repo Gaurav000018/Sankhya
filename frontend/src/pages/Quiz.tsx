@@ -4,7 +4,7 @@ import { ApiError, api } from "../api";
 import { PageHeader } from "../components/Layout";
 import { AbilityScale, AbilityTrace } from "../components/AbilityScale";
 import type { Ability, TraceStep } from "../components/AbilityScale";
-import { Card, Empty, ErrorNote, Note, Spinner, StatTile } from "../components/ui";
+import { btnPrimary, btnSecondary, Card, Empty, ErrorNote, Note, Spinner, StatTile } from "../components/ui";
 import { usePageTitle } from "../hooks/usePageTitle";
 import type { Competency, Gap } from "../types";
 
@@ -121,6 +121,24 @@ interface History {
     min_responses_to_calibrate: number;
   };
   settings: { min_items: number; max_items: number; target_se: number };
+}
+
+/**
+ * The rationale for one option, out of a list that has no slot for the key.
+ *
+ * `distractor_rationale` holds one entry per *distractor*, in option order —
+ * three for a four-option item. Indexing it by option position is off by one
+ * for every option after the key, and silently so: it returns a real sentence
+ * about a different option rather than erroring.
+ */
+function rationaleFor(
+  rationales: string[] | null,
+  optionIndex: number,
+  correctIndex: number,
+): string | null {
+  if (!rationales || optionIndex === correctIndex) return null;
+  const position = optionIndex > correctIndex ? optionIndex - 1 : optionIndex;
+  return rationales[position] ?? null;
 }
 
 const STOP_LABEL: Record<string, string> = {
@@ -335,7 +353,7 @@ export function Quiz() {
           <button
             disabled={busy}
             onClick={() => start()}
-            className="w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className={`${btnPrimary} w-full`}
           >
             {busy ? "Preparing…" : "Assess my widest gap"}
           </button>
@@ -492,7 +510,7 @@ function TakingView({
         action={
           <button
             onClick={onAbandon}
-            className="border border-rule-strong px-3 py-1.5 text-[12.5px] text-ink-3 transition-colors hover:border-critical hover:text-ink"
+            className={btnSecondary}
           >
             Leave
           </button>
@@ -635,12 +653,20 @@ function TakingView({
             {!graded.is_correct &&
               !graded.skipped &&
               graded.selected_index != null &&
-              graded.distractor_rationale?.[graded.selected_index] && (
+              rationaleFor(
+                graded.distractor_rationale,
+                graded.selected_index,
+                graded.correct_index,
+              ) && (
                 <p className="mt-3 border-l-2 border-critical pl-3 text-[13px] leading-relaxed text-ink-2">
                   <span className="font-semibold text-ink">
                     Why {String.fromCharCode(65 + graded.selected_index)} is wrong:{" "}
                   </span>
-                  {graded.distractor_rationale[graded.selected_index]}
+                  {rationaleFor(
+                    graded.distractor_rationale,
+                    graded.selected_index,
+                    graded.correct_index,
+                  )}
                 </p>
               )}
 
@@ -662,7 +688,7 @@ function TakingView({
         {graded ? (
           <button
             onClick={onAdvance}
-            className="shrink-0 bg-accent px-5 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90"
+            className={`${btnPrimary} shrink-0`}
           >
             {attempt.finished ? "See the result" : "Next question"}
           </button>
@@ -671,14 +697,14 @@ function TakingView({
             <button
               disabled={busy}
               onClick={onSubmit}
-              className="border border-rule-strong px-4 py-2 text-sm text-ink-3 transition-colors hover:border-accent hover:text-ink disabled:opacity-50"
+              className={btnSecondary}
             >
               Skip
             </button>
             <button
               disabled={busy || choice === null}
               onClick={onSubmit}
-              className="bg-accent px-5 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className={btnPrimary}
             >
               {busy ? "Scoring…" : "Answer"}
             </button>
@@ -711,7 +737,7 @@ function ResultView({
         action={
           <button
             onClick={onDone}
-            className="border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-ink"
+            className={btnSecondary}
           >
             Done
           </button>

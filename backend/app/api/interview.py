@@ -44,7 +44,9 @@ from app.schemas import (
     WrittenAnswerIn,
     UploadAcceptedOut,
 )
+from app.services.interview_followthrough import build_follow_through
 from app.ml.judge import get_judge
+from app.ml.mistakes import OllamaMistakeChecker
 from app.services.interview import (
     AnalysisInput,
     apply_calibration,
@@ -59,6 +61,10 @@ from app.services.interview_scoring import SpeechSignal
 
 log = logging.getLogger("sankhya.api.interview")
 router = APIRouter(prefix="/interviews", tags=["interview"])
+
+# A written answer is scored inside the request, so its mistake check is
+# capped lower than the worker's.
+WRITTEN_MAX_MISTAKE_CHECKS = 4
 
 ALLOWED_AUDIO_SUFFIXES = {".webm", ".ogg", ".wav", ".m4a", ".mp4", ".mp3"}
 
@@ -220,7 +226,19 @@ async def upload_answer_audio(
     )
     db.commit()
 
-    queue.enqueue_analysis(answer.id)
+    try:
+        queue.enqueue_analysis(answer.id)
+    except queue.QueueUnavailable:
+        # The recording is saved and the answer row exists; only the handover
+        # failed. Say so plainly rather than returning "queued" for a job that
+        # nothing will ever pick up.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Speech analysis is unavailable on this deployment — the analysis "
+            "queue could not be reached. Your answer was recorded; type or "
+            "correct the transcript to have it scored on knowledge and "
+            "structure instead.",
+        )
 
     return UploadAcceptedOut(
         answer_id=answer.id,
@@ -411,7 +429,24 @@ def submit_written_answer(
         list(question.expected_points or []) if question else [],
         text,
     )
-    score_answer(db, answer, data, verdict)
+
+    # The same grounded mistake check a spoken answer gets in the worker, so a
+    # typed answer is not rated more kindly for skipping it. Fewer checks here:
+    # this runs inside the request the officer is waiting on.
+    mistakes: list[dict] = []
+    if not verdict.degraded and question and question.expected_points:
+        try:
+            mistakes = [
+                m.as_dict() for m in OllamaMistakeChecker().find(
+                    text, list(question.expected_points),
+                    max_checks=WRITTEN_MAX_MISTAKE_CHECKS,
+                )
+            ]
+        except Exception:
+            log.warning("Mistake check failed for written answer %s", answer.id,
+                        exc_info=True)
+
+    score_answer(db, answer, data, verdict, mistakes=mistakes)
 
     write_audit(
         db,
@@ -597,7 +632,7 @@ def submit_attention(
     metrics.quality = _attention_quality(payload.face_present_ratio, payload.frames_analysed)
 
     write_audit(
-        db, actor=user, action="interview.attention_received",
+        db, actor_user_id=user.id, action="interview.attention_received",
         entity_type="interview_answer", entity_id=str(answer.id),
         request=request,
         meta={
@@ -633,3 +668,29 @@ def _attention_quality(face_present_ratio: float | None, frames: int) -> str:
     if face_present_ratio >= 0.35:
         return "partial"
     return "unusable"
+
+
+@router.get("/{interview_id}/follow-through")
+def interview_follow_through(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Courses, learning paths and practice, from what this interview found.
+
+    Available to the officer and to anyone who can already view the interview —
+    a supervisor discussing next steps with their officer is the point of it.
+    The camera block is redacted from the report this is built on, so nothing
+    derived from it can leak through here either.
+    """
+    interview = _load_interview(db, interview_id, user)
+    report = build_report(db, interview, viewer_id=user.id)
+    result = build_follow_through(
+        db, user=interview.user, interview=interview, report=report,
+    )
+    return {
+        "interview_id": interview.id,
+        "competencies": result.competencies,
+        "practice": result.practice,
+        "caveat": result.caveat,
+    }

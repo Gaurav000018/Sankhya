@@ -81,15 +81,21 @@ export function AbilityScale({
         {/* The track */}
         <div className="absolute inset-x-0 top-4 h-1.5 bg-surface-2" />
 
-        {/* The 95% interval */}
+        {/* The 95% interval.
+            `accent/60` rather than the `accent-dim` token: measured against the
+            track on the portal palette, the token sits at 1.17:1 — the band that
+            carries the entire honesty of this display was invisible. This clears
+            3:1 (WCAG 1.4.11 for meaningful non-text) in both themes. */}
         <div
-          className="absolute top-4 h-1.5 bg-accent-dim transition-all duration-500"
+          className="absolute top-4 h-1.5 bg-accent/60 transition-all duration-500"
           style={{ left: `${low}%`, width: `${Math.max(high - low, 0.8)}%` }}
         />
 
-        {/* The point estimate */}
+        {/* The point estimate. Ink rather than accent, because the marker sits
+            *on* the band and navy-on-navy reads at 3.0:1 where ink reads at
+            4.5:1. */}
         <div
-          className="absolute top-[11px] h-[14px] w-[2.5px] bg-accent transition-all duration-500"
+          className="absolute top-[11px] h-[14px] w-[2.5px] bg-ink transition-all duration-500"
           style={{ left: `calc(${at(ability.level)}% - 1.25px)` }}
         />
 
@@ -244,7 +250,21 @@ export function AbilityTrace({ steps }: { steps: TraceStep[] }) {
                 strokeWidth={0.25}
               />
             ))}
-            {band && <path d={band} fill="var(--color-accent-dim)" opacity={0.45} />}
+            {/* A tint alone is barely perceivable on a white card at any
+                opacity that does not swamp the estimate line, so the band is
+                outlined as well — the boundary is what a reader is actually
+                reading off it. */}
+            {band && (
+              <path
+                d={band}
+                fill="var(--color-accent)"
+                fillOpacity={0.22}
+                stroke="var(--color-accent)"
+                strokeOpacity={0.5}
+                strokeWidth={0.4}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
             {line && (
               <path
                 d={line}
@@ -304,7 +324,7 @@ export function AbilityTrace({ steps }: { steps: TraceStep[] }) {
           {t("quiz.legend.estimate")}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-3 bg-accent-dim" />
+          <span className="inline-block h-2 w-3 border border-accent/50 bg-accent/22" />
           {t("quiz.legend.interval")}
         </span>
         <span className="text-ink-3">
