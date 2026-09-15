@@ -478,7 +478,7 @@ export function Interview() {
             <button
               disabled={busy}
               onClick={begin}
-              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Preparing…" : "Begin interview"}
             </button>
@@ -514,7 +514,7 @@ export function Interview() {
               {!done && (
                 <button
                   onClick={() => setActiveId(remaining[0].answer_id)}
-                  className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90"
+                  className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
                 >
                   Continue ({remaining.length} left)
                 </button>
@@ -619,7 +619,7 @@ export function Interview() {
               <button
                 disabled={busy}
                 onClick={() => saveTranscript(true)}
-                className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 Save and re-score
               </button>
@@ -794,7 +794,7 @@ export function Interview() {
 
               <button
                 onClick={recorder.stop}
-                className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110"
+                className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-strong"
               >
                 Stop and submit
               </button>
@@ -816,7 +816,7 @@ export function Interview() {
               <button
                 disabled={busy || recorder.state === "requesting"}
                 onClick={recorder.start}
-                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {recorder.state === "requesting" ? "Requesting microphone…" : "Start recording"}
               </button>
@@ -853,7 +853,7 @@ export function Interview() {
                   disabled={q.status === "scored"}
                   className={`px-3 py-1.5 text-[12px] ${
                     q.answer_id === activeId
-                      ? "bg-accent text-ground"
+                      ? "bg-accent text-white"
                       : q.status === "scored"
                         ? "border border-rule bg-surface-2 text-ink-3"
                         : "border border-rule-strong text-ink-2 hover:border-accent"

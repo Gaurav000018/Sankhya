@@ -40,7 +40,7 @@ function SignalTable({
   rows: JourneyOut["assessment"];
 }) {
   return (
-    <div className="rounded-lg border border-rule bg-surface-2 p-4">
+    <div className="rounded border border-rule bg-surface-2 p-4">
       <div className="text-[13px] font-semibold">{title}</div>
       <p className="mt-0.5 text-[11.5px] text-ink-3">{hint}</p>
       {rows.length === 0 ? (
@@ -104,7 +104,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
             {journey.divergences.map((d) => (
               <div
                 key={d.competency_name}
-                className="rounded-lg border-l-2 border-brass bg-tint-brass p-4"
+                className="rounded border-l-2 border-brass bg-tint-brass p-4"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                   <span className="text-[14px] font-medium">{d.competency_name}</span>
@@ -123,7 +123,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
         )}
 
         {journey.unmeasured.length > 0 && (
-          <div className="mt-4 rounded-lg border border-dashed border-rule-strong p-4">
+          <div className="mt-4 rounded border border-dashed border-rule-strong p-4">
             <div className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">
               Not yet measured
             </div>
@@ -137,7 +137,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
       </StepShell>
 
       {journey.needs_role ? (
-        <section className="rounded-xl border border-brass/40 bg-tint-brass p-6 sm:p-8">
+        <section className="rounded border border-brass/40 bg-tint-brass p-6 sm:p-8">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-brass">
             Roadmap unavailable
           </div>
@@ -157,7 +157,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
           </p>
         </section>
       ) : (
-      <section className="rounded-xl border border-rule bg-surface p-6 sm:p-8">
+      <section className="rounded border border-rule bg-surface p-6 sm:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
@@ -186,7 +186,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
           {journey.roadmap.map((step) => (
             <li
               key={step.order}
-              className="rounded-lg border border-rule bg-surface-2 p-5"
+              className="rounded border border-rule bg-surface-2 p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 gap-3.5">
@@ -197,7 +197,7 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[15px] font-medium">{step.competency_name}</span>
                       {step.criticality === "critical" && (
-                        <span className="rounded-full bg-critical/15 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-critical">
+                        <span className="rounded bg-critical/15 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-critical">
                           critical
                         </span>
                       )}
@@ -253,13 +253,13 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
         <div className="mt-7 flex flex-wrap gap-3">
           <Link
             to="/learning"
-            className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-medium text-ground transition-[filter] hover:brightness-110"
+            className="rounded bg-accent px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent-strong"
           >
             Build a learning path
           </Link>
           <Link
             to="/dashboard"
-            className="rounded-full border border-rule-strong px-5 py-2.5 text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent"
+            className="rounded border border-rule-strong px-5 py-2.5 text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent"
           >
             Back to your dashboard
           </Link>
