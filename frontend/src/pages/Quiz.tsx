@@ -146,7 +146,7 @@ export function Quiz() {
             <button
               disabled={busy || answered === 0}
               onClick={submit}
-              className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Submitting…" : "Submit"}
             </button>
@@ -333,7 +333,7 @@ export function Quiz() {
               <button
                 disabled={busy}
                 onClick={() => start()}
-                className="w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {busy ? "Preparing…" : "Assess my widest gap"}
               </button>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError, api } from "../api";
 import { AuthDivider, GoogleSignIn } from "../components/GoogleSignIn";
+import { PublicShell } from "../components/portal";
 import { useAuth } from "../auth";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useT } from "../i18n";
@@ -68,28 +69,30 @@ export function Login() {
     }
   }
 
-  return (
-    <div className="relative flex min-h-full items-center justify-center overflow-hidden px-6 py-12">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-6rem] -z-10 h-[26rem] w-[36rem] -translate-x-1/2 animate-drift rounded-full bg-accent opacity-[0.10] blur-[110px]"
-      />
-      <div className="w-full max-w-[420px]">
-        <Link to="/" className="mb-7 inline-flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M4 20V13" /><path d="M9.3 20V8" /><path d="M14.7 20V15" /><path d="M20 20V4" />
-          </svg>
-          <span className="font-serif text-[21px] font-semibold tracking-[0.08em]">SANKHYA</span>
-        </Link>
+  const DEMO_ACCOUNTS = [
+    ["Officer", "venkatesan@sankhya.gov.in"],
+    ["Supervisor", "director.esd@sankhya.gov.in"],
+    ["Subject expert", "sme@sankhya.gov.in"],
+    ["Administrator", "admin@sankhya.gov.in"],
+  ] as const;
 
-        <h1 className="font-serif text-[24px] font-semibold leading-tight">
+  return (
+    <PublicShell>
+      <div className="mx-auto grid max-w-[980px] gap-6 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="w-full">
+        <nav aria-label="Breadcrumb" className="mb-2 text-[12.5px] text-ink-3">
+          <Link to="/" className="text-accent hover:underline">Home</Link>
+          <span className="mx-1.5">›</span>
+          <span className="text-ink-2">{t("login.heading")}</span>
+        </nav>
+        <h1 className="text-[22px] font-semibold leading-tight text-ink">
           {t("login.heading")}
         </h1>
-        <p className="mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">
+        <p className="mt-1 max-w-[56ch] text-[13.5px] leading-relaxed text-ink-2">
 {t("login.intro")}
         </p>
 
-        <div className="mt-7 rounded-xl border border-rule bg-surface">
+        <div className="mt-5 rounded border border-rule bg-surface">
           {googleClientId && (
             <div className="border-b border-rule p-5 pb-0">
               <GoogleSignIn
@@ -128,7 +131,7 @@ export function Login() {
           <div className="p-5">
             <label
               htmlFor="login-email"
-              className="block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3"
+              className="block text-[13px] font-semibold text-ink"
             >
               {t("login.email")}
             </label>
@@ -138,14 +141,14 @@ export function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
-              className="mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+              className="mt-1.5 w-full rounded border border-rule-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
             />
 
             {method === "password" && (
               <>
                 <label
                   htmlFor="login-password"
-                  className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3"
+                  className="mt-4 block text-[13px] font-semibold text-ink"
                 >
                   {t("login.password")}
                 </label>
@@ -158,12 +161,12 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.loginWithPassword(email, password))
                   }
-                  className="mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+                  className="mt-1.5 w-full rounded border border-rule-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy}
                   onClick={() => run(() => api.loginWithPassword(email, password))}
-                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
+                  className="mt-5 w-full rounded bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-50"
                 >
                   {busy ? t("login.submitting") : t("login.submit")}
                 </button>
@@ -183,7 +186,7 @@ export function Login() {
                 <button
                   disabled={busy}
                   onClick={sendCode}
-                  className="mt-4 w-full rounded-full border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                  className="mt-4 w-full rounded border border-rule-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
                 >
                   {busy ? t("login.sending") : t("login.sendCode")}
                 </button>
@@ -198,7 +201,7 @@ export function Login() {
 
                 <label
                   htmlFor="login-otp"
-                  className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3"
+                  className="mt-4 block text-[13px] font-semibold text-ink"
                 >
                   {t("login.code")}
                 </label>
@@ -212,12 +215,12 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.verifyOtp(email, code))
                   }
-                  className="tabular mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
+                  className="tabular mt-1.5 w-full rounded border border-rule-strong bg-surface px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy || code.length !== 6}
                   onClick={() => run(() => api.verifyOtp(email, code))}
-                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
+                  className="mt-5 w-full rounded bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-50"
                 >
                   {t("login.verify")}
                 </button>
@@ -228,7 +231,7 @@ export function Login() {
               <>
                 <label
                   htmlFor="login-totp"
-                  className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3"
+                  className="mt-4 block text-[13px] font-semibold text-ink"
                 >
                   {t("login.codeFromApp")}
                 </label>
@@ -242,12 +245,12 @@ export function Login() {
                   onKeyDown={(e) =>
                     e.key === "Enter" && run(() => api.loginWithTotp(email, code))
                   }
-                  className="tabular mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
+                  className="tabular mt-1.5 w-full rounded border border-rule-strong bg-surface px-3 py-2 font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
                 />
                 <button
                   disabled={busy || code.length !== 6}
                   onClick={() => run(() => api.loginWithTotp(email, code))}
-                  className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
+                  className="mt-5 w-full rounded bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-50"
                 >
                   Sign in
                 </button>
@@ -262,7 +265,7 @@ export function Login() {
             })()}
 
             {error && (
-              <div className="mt-4 border-l-2 border-critical bg-surface px-3 py-2 text-[13px] text-ink-2">
+              <div role="alert" className="mt-4 rounded border border-critical/40 border-l-4 border-l-critical bg-tint-critical px-3 py-2 text-[13px] text-ink">
                 {error}
               </div>
             )}
@@ -280,6 +283,50 @@ export function Login() {
 {t("login.parichay")}
         </p>
       </div>
-    </div>
+
+      <aside className="space-y-4">
+        <section className="rounded border border-rule bg-surface">
+          <h2 className="border-b border-rule bg-surface-2 px-4 py-2.5 text-[14px] font-semibold text-ink">
+            Demonstration accounts
+          </h2>
+          <div className="p-4 text-[13px]">
+            <p className="text-ink-2">
+              Select an account to fill in its email. The password for all of them is{" "}
+              <span className="font-semibold text-ink">Sankhya@2026</span>.
+            </p>
+            <ul className="mt-3 divide-y divide-rule rounded border border-rule">
+              {DEMO_ACCOUNTS.map(([role, address]) => (
+                <li key={address}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(address);
+                      setPassword("Sankhya@2026");
+                      setMethod("password");
+                      setError(null);
+                    }}
+                    className={`block w-full px-3 py-2 text-left hover:bg-tint-accent ${
+                      email === address ? "bg-tint-accent" : ""
+                    }`}
+                  >
+                    <span className="block font-semibold text-ink">{role}</span>
+                    <span className="block truncate text-[12.5px] text-ink-3">{address}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+        <section className="rounded border border-rule bg-surface p-4 text-[12.5px] leading-relaxed text-ink-2">
+          <h2 className="mb-1 text-[14px] font-semibold text-ink">Important</h2>
+          <ul className="list-disc space-y-1 pl-4">
+            <li>Never share your password or one-time code with anyone.</li>
+            <li>Sign out after use on a shared computer.</li>
+            <li>All records in this prototype are synthetic.</li>
+          </ul>
+        </section>
+      </aside>
+      </div>
+    </PublicShell>
   );
 }

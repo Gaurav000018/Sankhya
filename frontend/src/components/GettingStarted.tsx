@@ -34,8 +34,8 @@ function Step({
   action?: { to: string; label: string };
 }) {
   const mark = {
-    done: { ring: "border-good bg-good text-ground", label: "✓" },
-    now: { ring: "border-accent bg-accent text-ground", label: String(index) },
+    done: { ring: "border-good bg-good text-white", label: "✓" },
+    now: { ring: "border-accent bg-accent text-white", label: String(index) },
     waiting: { ring: "border-rule-strong text-ink-3", label: String(index) },
   }[state];
 
@@ -57,12 +57,12 @@ function Step({
             {title}
           </h3>
           {state === "done" && (
-            <span className="rounded-full bg-tint-good px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-good">
+            <span className="rounded bg-tint-good px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-good">
               done
             </span>
           )}
           {state === "waiting" && waitingOn && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
+            <span className="rounded bg-surface-2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
               {waitingOn}
             </span>
           )}
@@ -71,7 +71,7 @@ function Step({
         {action && state === "now" && (
           <Link
             to={action.to}
-            className="mt-3 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-ground transition-[filter] hover:brightness-110"
+            className="mt-3 inline-flex items-center gap-2 rounded bg-accent px-4 py-2 text-[13px] font-medium text-white hover:bg-accent-strong"
           >
             {action.label}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden="true">
@@ -90,11 +90,7 @@ export function GettingStarted({ twin }: { twin: SkillTwin }) {
   const hasSelfRating = evidenceCount > 0;
 
   return (
-    <section className="relative overflow-hidden rounded-xl border border-rule bg-surface">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-[-8rem] top-[-10rem] -z-10 h-72 w-72 rounded-full bg-accent opacity-[0.07] blur-[90px]"
-      />
+    <section className="relative overflow-hidden rounded border border-rule bg-surface">
       <div className="border-b border-rule px-6 py-5">
         <h1
           tabIndex={-1}
@@ -151,7 +147,7 @@ export function GettingStarted({ twin }: { twin: SkillTwin }) {
           />
         </ol>
 
-        <aside className="rounded-lg border border-rule bg-surface-2 p-5">
+        <aside className="rounded border border-rule bg-surface-2 p-5">
           <h2 className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-accent">
             How your level is decided
           </h2>

@@ -1,64 +1,67 @@
 @import "tailwindcss";
 
-/* Dark instrument panel. The product is read in long sessions against dense
-   numbers, so the ground is near-black and every surface above it is a small,
-   deliberate step lighter — depth comes from luminance, not from shadow.
+/* Government portal design system.
 
-   Colour still carries one job each. `accent` is brand and interaction.
-   `brass` marks a *requirement* (the target line on a chart, a cited source).
-   The four status colours are a ramp and are never the only channel: a status
-   always ships with its label, and a bar always ships with its number.
+   Light, bordered and quiet, in the register of iGOT Karmayogi, DigiLocker and
+   the GST portal: a white working surface on a light grey page, navy for
+   identity and interaction, and colour otherwise reserved for status. Structure
+   comes from borders, not shadows; there are no gradients, glows or motion
+   beyond what an interaction needs.
 
-   Every foreground here clears WCAG AA (4.5:1) on all three grounds, and
-   `rule-strong` clears 3:1 as a UI component boundary (1.4.11). Changing a
-   value means rechecking it. */
+   The token names are the ones the whole app already uses, so every screen
+   picks up the system without its markup changing:
+
+     ground    page background          surface    cards and panels
+     surface-2 table headers, wells     rule       borders
+     ink       text (three strengths)   accent     navy: brand, links, buttons
+     brass     a *requirement* marker   critical / warn / near / good: status
+
+   Every text colour clears WCAG AA (4.5:1) on white and on the page grey, and
+   `rule-strong` clears 3:1 as a control boundary (1.4.11). Status colours carry
+   white text at AA as well, because buttons and badges put white text on
+   them. Changing a value means rechecking it. */
 @theme {
-  /* Devanagari sits in the stack rather than in a separate rule: the two faces
-     are metric-companions, so mixed English/Hindi lines keep one baseline. */
-  --font-sans: "IBM Plex Sans", "IBM Plex Sans Devanagari", "Nirmala UI",
-    "Segoe UI", system-ui, sans-serif;
-  --font-serif: "IBM Plex Serif", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --font-sans: "Noto Sans", "Noto Sans Devanagari", "Nirmala UI", "Segoe UI", system-ui,
+    sans-serif;
+  /* One family throughout. Portals of this kind do not switch to a serif for
+     headings or to a monospace for figures; figures use tabular numerals. */
+  --font-serif: var(--font-sans);
+  --font-mono: var(--font-sans);
 
-  --color-ground: #07090c;
-  --color-surface: #0d1117;
-  --color-surface-2: #161d26;
-  --color-surface-3: #1d2732;
+  --color-ground: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f4f8;
+  --color-surface-3: #e5eaf1;
 
-  --color-ink: #e9eef4;
-  --color-ink-2: #9fadbc;
-  /* Carries 10-12px labels and hints, so 4.5:1 applies rather than 3:1. */
-  --color-ink-3: #7b8794;
+  --color-ink: #1a2533;
+  --color-ink-2: #3f4c5a;
+  --color-ink-3: #5b6775;
 
-  --color-rule: #1b232c;
-  /* Input and control borders are UI component boundaries: WCAG 1.4.11 wants
-     3:1 against the ground behind them. */
-  --color-rule-strong: #55636f;
+  --color-rule: #d8dee6;
+  --color-rule-strong: #7f8b98;
 
-  --color-accent: #38ef8d;
-  /* The accent at rest — fills, hovers and chart areas, where the full-strength
-     green would shout over the data sitting on top of it. */
-  --color-accent-dim: #17593a;
-  --color-brass: #e8b866;
+  /* Navy. `accent-strong` is the hover/pressed state of a filled button;
+     `accent-dim` is a pale fill for chart areas and selected rows. */
+  --color-accent: #123f73;
+  --color-accent-strong: #0b2d55;
+  --color-accent-dim: #d9e4f1;
+  --color-navy-900: #0a2748;
 
-  --color-critical: #ff6b5e;
-  --color-warn: #f5a524;
-  --color-near: #c3e04a;
-  --color-good: #22cfc0;
+  --color-brass: #a15300;
 
-  /* Washes behind callouts. Translucent rather than flat so they sit correctly
-     on whichever surface they land on. */
-  --color-tint-accent: rgb(56 239 141 / 0.09);
-  --color-tint-brass: rgb(232 184 102 / 0.09);
-  --color-tint-good: rgb(34 207 192 / 0.09);
-  --color-tint-critical: rgb(255 107 94 / 0.09);
+  --color-critical: #b42318;
+  --color-warn: #b54708;
+  --color-near: #7a5c00;
+  --color-good: #107040;
 
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-glow: glow 4.5s ease-in-out infinite;
-  --animate-marquee: marquee 38s linear infinite;
-  --animate-shimmer: shimmer 2.6s linear infinite;
-  --animate-drift: drift 22s ease-in-out infinite;
-  --animate-blink: blink 1.15s step-end infinite;
+  --color-tint-accent: #eef3f9;
+  --color-tint-brass: #fdf4e7;
+  --color-tint-good: #ecf6f0;
+  --color-tint-critical: #fdf0ef;
+
+  /* Tricolour, used only for the thin band under the portal header. */
+  --color-saffron: #ff9933;
+  --color-india-green: #138808;
 }
 
 html,
@@ -72,12 +75,15 @@ body {
   background: var(--color-ground);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Digits line up in every table and stat tile. */
-.tabular {
+/* Figures line up in every table and metric card, whatever class they carry. */
+.tabular,
+.font-mono {
   font-variant-numeric: tabular-nums;
 }
 
@@ -86,298 +92,19 @@ body {
   outline-offset: 2px;
 }
 
-/* ---------------------------------------------------------------- motion --
-
-   Everything below is decoration. The reduced-motion block at the end turns
-   all of it off, and the reveal utility is written so that "no animation"
-   leaves content *visible* rather than stuck at opacity 0 — a scroll-reveal
-   that fails open is a blank page. */
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-14px);
-  }
-}
-
-@keyframes glow {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.08);
-  }
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes shimmer {
-  from {
-    background-position: -180% 0;
-  }
-  to {
-    background-position: 180% 0;
-  }
-}
-
-@keyframes drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(3%, -4%, 0) scale(1.06);
-  }
-  66% {
-    transform: translate3d(-3%, 3%, 0) scale(0.97);
-  }
-}
-
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-@keyframes word-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.55em);
-    filter: blur(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-    filter: blur(0);
-  }
-}
-
-@keyframes ticker-in {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes sheen {
-  from {
-    transform: translateX(-140%) skewX(-18deg);
-  }
-  to {
-    transform: translateX(260%) skewX(-18deg);
-  }
-}
-
-@keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Staged entrance for the hero. `both` fill mode means the element sits at its
-   end state after the animation — and, under reduced motion, from the first
-   frame. No display value here on purpose: it goes on block wrappers as well
-   as on words, and an inline-block paragraph flows beside its neighbour. */
-.word {
-  animation: word-in 1s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--d, 0ms);
-}
-
-/* The hero product frame follows the pointer. The base tilt is the resting
-   pose; --rx/--ry are set by the hero's mousemove handler and return to zero
-   when the pointer leaves, so the frame settles rather than snaps. */
-.parallax {
-  transform: perspective(1600px) rotateX(calc(9deg + var(--ry, 0deg)))
-    rotateY(calc(-7deg + var(--rx, 0deg))) rotateZ(0.6deg);
-  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* A card that lights up under the cursor. --mx/--my are set per card on
-   mousemove, so the highlight is local to the card being pointed at. */
-.spotlight {
-  position: relative;
-}
-
-.spotlight::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.35s;
-  background: radial-gradient(
-    260px circle at var(--mx, 50%) var(--my, 50%),
-    rgb(56 239 141 / 0.13),
-    transparent 62%
-  );
-}
-
-.spotlight:hover::before {
-  opacity: 1;
-}
-
-/* One light sweep across the primary button on hover. */
-.sheen {
-  position: relative;
-  overflow: hidden;
-}
-
-.sheen::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 38%;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.5), transparent);
-  transform: translateX(-140%) skewX(-18deg);
-}
-
-.sheen:hover::after {
-  animation: sheen 0.9s ease-out;
-}
-
-/* Fades the ends of a marquee so items slide in from nothing. */
-.mask-x {
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-}
-
-.pulse-dot {
-  animation: pulse-dot 2.4s ease-in-out infinite;
-  animation-delay: var(--d, 0ms);
-}
-
-.ticker-row {
-  animation: ticker-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.pop {
-  animation: pop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* The rule beside a section eyebrow draws in as the section reveals. Same
-   fail-open contract as .reveal: full width unless armed and not yet seen. */
-.eyebrow-rule {
-  transform-origin: left;
-  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
-}
-
-.reveal[data-armed="1"] .eyebrow-rule {
-  transform: scaleX(0);
-}
-
-.reveal[data-armed="1"].is-visible .eyebrow-rule {
-  transform: scaleX(1);
-}
-
-/* Scroll reveal. The element is visible by default and only hidden once the
-   observer has confirmed it is watching — so a JS failure, an old browser, or
-   a print stylesheet all still show the content. */
-.reveal {
-  opacity: 1;
-}
-
-.reveal[data-armed="1"] {
-  opacity: 0;
-  transform: translateY(18px);
-}
-
-.reveal[data-armed="1"].is-visible {
-  opacity: 1;
-  transform: none;
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Hairline grid, the way a plotting surface is ruled. Sits behind the hero at
-   very low contrast so it reads as texture, never as content. */
-.grid-rule {
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
-  background-size: 64px 64px;
-}
-
-.text-gradient {
-  background: linear-gradient(
-    100deg,
-    var(--color-ink) 0%,
-    var(--color-ink) 42%,
-    var(--color-accent) 78%,
-    var(--color-good) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* A single travelling highlight across a rule or a border. Used sparingly —
-   one per section at most, on the thing the eye should land on. */
-.shimmer-rule {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-accent) 45%,
-    var(--color-good) 55%,
-    transparent 100%
-  );
-  background-size: 220% 100%;
-}
-
-/* Keyboard users land on the nav on every page load. This lets them jump past
-   it in one keystroke — WCAG 2.4.1 Bypass Blocks. Visible only on focus. */
+/* Keyboard users land on the header on every page load. This lets them jump
+   past it in one keystroke — WCAG 2.4.1 Bypass Blocks. Visible only on focus. */
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 100;
-  padding: 0.6rem 1rem;
-  background: var(--color-surface-2);
-  color: var(--color-ink);
+  padding: 0.5rem 0.9rem;
+  background: var(--color-surface);
+  color: var(--color-accent);
   border: 2px solid var(--color-accent);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .skip-link:focus {
@@ -391,8 +118,7 @@ body {
   outline: none;
 }
 
-/* Available to a screen reader, invisible on screen. Used for table captions
-   and any label that would be redundant visually but is needed for structure. */
+/* Available to a screen reader, invisible on screen. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -405,17 +131,52 @@ body {
   border: 0;
 }
 
+/* Scroll-reveal is retired; the class stays harmless for any markup that still
+   carries it, so content is never left hidden. */
+.reveal,
+.reveal[data-armed="1"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tables: the portal pattern for status data. In the components layer, so a
+   utility on a cell (text-right, a background) still wins. */
+@layer components {
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    background: var(--color-surface-2);
+    color: var(--color-ink-2);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-rule);
+    vertical-align: middle;
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .data-table tbody tr:hover td {
+    background: #f8fafc;
+  }
+}
+
 /* Devanagari carries more vertical detail than Latin; a little extra leading
    stops matras colliding with the line above. */
 html[lang="hi"] body {
   line-height: 1.7;
-}
-
-/* Dark scrollbars. A bright system scrollbar against a near-black page is the
-   one element that gives away a retrofitted theme. */
-* {
-  scrollbar-color: var(--color-rule-strong) transparent;
-  scrollbar-width: thin;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -426,18 +187,10 @@ html[lang="hi"] body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
 
-  /* Content must not depend on a transition that no longer runs. */
-  .reveal[data-armed="1"] {
-    opacity: 1;
-    transform: none;
-  }
-
-  .reveal[data-armed="1"] .eyebrow-rule {
-    transform: none;
-  }
-
-  .parallax {
-    transform: perspective(1600px) rotateX(9deg) rotateY(-7deg) rotateZ(0.6deg);
+@media print {
+  .no-print {
+    display: none !important;
   }
 }

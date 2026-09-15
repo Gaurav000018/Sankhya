@@ -8,13 +8,23 @@ import {
   AttentionPanel,
   AxisScores,
   CoachingPanel,
+  FollowThroughPanel,
+  MistakesPanel,
   type AnswerReport,
   type Axis,
 } from "../components/InterviewReport";
 import { Card, Empty, ErrorNote, Note, Spinner } from "../components/ui";
+import { LiveDebrief, LiveIndicator } from "../components/LiveSpeechPanel";
 import { useFaceMesh } from "../hooks/useFaceMesh";
+import { useLiveSpeech } from "../hooks/useLiveSpeech";
 import { useRecorder } from "../hooks/useRecorder";
-import type { Coaching, FracRole, NextQuestion } from "../types";
+import type {
+  Coaching,
+  FollowThrough,
+  FracRole,
+  LiveSpeech,
+  NextQuestion,
+} from "../types";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 interface QuestionSlot {
@@ -54,6 +64,8 @@ interface AnswerStatus {
   scored: boolean;
 }
 
+const MAX_STATUS_POLLS = 240; // at 1.5s each
+
 function seconds(value: number) {
   const m = Math.floor(value / 60);
   const s = Math.floor(value % 60);
@@ -89,8 +101,13 @@ export function Interview() {
   const [cameraWanted, setCameraWanted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const faceMesh = useFaceMesh();
+  const liveSpeech = useLiveSpeech();
+  // The last answer's live figures, kept after the recogniser stops so the
+  // debrief survives while the server pass runs.
+  const [lastLive, setLastLive] = useState<LiveSpeech | null>(null);
   const [attentionNote, setAttentionNote] = useState<string | null>(null);
   const [nextInfo, setNextInfo] = useState<NextQuestion | null>(null);
+  const [followThrough, setFollowThrough] = useState<FollowThrough | null>(null);
 
   useEffect(() => {
     api
@@ -118,6 +135,8 @@ export function Interview() {
         );
         setNextInfo(next);
         if (!next.done && next.answer_id !== null) {
+          setLastLive(null);
+          liveSpeech.reset();
           setActiveId(next.answer_id);
           await refresh(interviewId);
         } else {
@@ -131,7 +150,7 @@ export function Interview() {
         return null;
       }
     },
-    [refresh],
+    [refresh, liveSpeech],
   );
 
   /**
@@ -172,7 +191,22 @@ export function Interview() {
           );
           setAnswerStatus(status);
 
-          if (status.scored || status.status === "failed" || attempts > 90) {
+          // About six minutes. Transcription, the rubric judge and the mistake
+          // check run one after another, and on the CPU runner a long answer
+          // takes over two minutes — the old limit of 90 polls gave up on
+          // answers that were still being analysed.
+          const timedOut = attempts > MAX_STATUS_POLLS;
+          if (timedOut && !status.scored && status.status !== "failed") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setProgress(null);
+            setError(
+              "Analysis is taking much longer than usual. Your recording was received; " +
+                "check that the analysis worker is still running, then reload this page.",
+            );
+            return;
+          }
+          if (status.scored || status.status === "failed") {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
             setProgress(null);
@@ -188,7 +222,9 @@ export function Interview() {
           } else {
             setProgress(
               status.job === "analysing"
-                ? "Transcribing and scoring your answer…"
+                ? status.detail
+                  ? `${status.detail}…`
+                  : "Transcribing and scoring your answer…"
                 : status.worker_online
                   ? "Queued for analysis…"
                   : "Queued, but no analysis worker is running.",
@@ -209,6 +245,7 @@ export function Interview() {
       setError(null);
       setProgress("Uploading…");
       faceMesh.stop();
+      setLastLive(liveSpeech.stop());
       try {
         const result = await api.uploadAnswerAudio(interview.interview_id, activeId, blob);
         void submitAttention(interview.interview_id, activeId, seconds);
@@ -229,7 +266,7 @@ export function Interview() {
         setBusy(false);
       }
     },
-    [activeId, interview, watchAnswer, faceMesh, submitAttention],
+    [activeId, interview, watchAnswer, faceMesh, liveSpeech, submitAttention],
   );
 
   const onStream = useCallback(
@@ -243,11 +280,21 @@ export function Interview() {
     [faceMesh],
   );
 
+  const handleStream = useCallback(
+    (stream: MediaStream) => {
+      onStream(stream);
+      // Same stream, no second microphone request, and no audio leaves the
+      // browser for this — recognition runs here.
+      liveSpeech.start(stream);
+    },
+    [onStream, liveSpeech],
+  );
+
   const recorder = useRecorder({
     maxSeconds: interview?.max_answer_seconds ?? 90,
     onComplete: handleRecorded,
     video: cameraWanted && faceMesh.supported !== false,
-    onStream,
+    onStream: handleStream,
   });
 
   async function begin() {
@@ -255,6 +302,10 @@ export function Interview() {
     setError(null);
     try {
       if (cameraWanted) await faceMesh.load();
+      // Loaded before the first question so the model download does not land in
+      // the middle of an answer. Optional: if it is not packaged, the interview
+      // runs exactly as it does without it.
+      void liveSpeech.load();
       const created = await api.post<Interview>("/interviews", {
         target_role_id: targetRoleId,
       });
@@ -302,6 +353,12 @@ export function Interview() {
     try {
       setInterview(await api.post<Interview>(`/interviews/${interview.interview_id}/complete`));
       setActiveId(null);
+      // Fetched once, on finishing, rather than on every refresh: it ranks
+      // courses against each weak competency, which is real work.
+      api
+        .get<FollowThrough>(`/interviews/${interview.interview_id}/follow-through`)
+        .then(setFollowThrough)
+        .catch(() => setFollowThrough(null));
     } finally {
       setBusy(false);
     }
@@ -421,7 +478,7 @@ export function Interview() {
             <button
               disabled={busy}
               onClick={begin}
-              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="mt-3 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Preparing…" : "Begin interview"}
             </button>
@@ -457,7 +514,7 @@ export function Interview() {
               {!done && (
                 <button
                   onClick={() => setActiveId(remaining[0].answer_id)}
-                  className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90"
+                  className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
                 >
                   Continue ({remaining.length} left)
                 </button>
@@ -486,6 +543,10 @@ export function Interview() {
 
         <div className="mb-4">
           <AxisScores axes={interview.axes} fluencyEnabled={interview.fluency_scoring_enabled} />
+        </div>
+
+        <div className="mb-4">
+          <MistakesPanel answers={interview.answers} />
         </div>
 
         <div className="mb-4">
@@ -525,6 +586,10 @@ export function Interview() {
           </div>
         )}
 
+        <div className="mb-4">
+          <FollowThroughPanel data={followThrough} />
+        </div>
+
         <AnswerBreakdown answers={interview.answers} />
       </>
     );
@@ -554,7 +619,7 @@ export function Interview() {
               <button
                 disabled={busy}
                 onClick={() => saveTranscript(true)}
-                className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 Save and re-score
               </button>
@@ -567,6 +632,10 @@ export function Interview() {
               </button>
             </div>
           </Card>
+
+          <div>
+            <LiveDebrief live={lastLive} />
+          </div>
 
           <Card title="Why you are being asked">
             <p className="text-[13px] leading-relaxed text-ink-2">
@@ -678,6 +747,17 @@ export function Interview() {
             <p className="mb-3 text-[11.5px] leading-relaxed text-ink-2">{faceMesh.error}</p>
           )}
 
+          {liveSpeech.loading && (
+            <p className="mb-3 text-[11.5px] text-ink-3">
+              Loading the live speech model — this happens once.
+            </p>
+          )}
+          {liveSpeech.available === false && liveSpeech.error && (
+            <p className="mb-3 text-[11.5px] leading-relaxed text-ink-3">
+              {liveSpeech.error}
+            </p>
+          )}
+
           {recorder.state === "recording" ? (
             <>
               <div className="flex items-baseline gap-3">
@@ -687,6 +767,8 @@ export function Interview() {
                 </span>
                 <span className="text-xs text-ink-3">of {seconds(cap)}</span>
               </div>
+
+              <LiveIndicator live={liveSpeech.live} />
 
               <div className="mt-3 h-1.5 w-full bg-surface-2">
                 <div
@@ -712,7 +794,7 @@ export function Interview() {
 
               <button
                 onClick={recorder.stop}
-                className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110"
+                className="mt-5 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-strong"
               >
                 Stop and submit
               </button>
@@ -734,7 +816,7 @@ export function Interview() {
               <button
                 disabled={busy || recorder.state === "requesting"}
                 onClick={recorder.start}
-                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="mt-4 w-full bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {recorder.state === "requesting" ? "Requesting microphone…" : "Start recording"}
               </button>
@@ -771,7 +853,7 @@ export function Interview() {
                   disabled={q.status === "scored"}
                   className={`px-3 py-1.5 text-[12px] ${
                     q.answer_id === activeId
-                      ? "bg-accent text-ground"
+                      ? "bg-accent text-white"
                       : q.status === "scored"
                         ? "border border-rule bg-surface-2 text-ink-3"
                         : "border border-rule-strong text-ink-2 hover:border-accent"

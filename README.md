@@ -91,9 +91,28 @@ Unit tests need no database or containers:
 cd backend && python -m pytest
 ```
 
-191 cases covering the reliability model, auth primitives, delivery scoring,
-judge output handling, citation verification, the ranking signals and the
-promotion simulator.
+243 cases covering the reliability model, auth primitives, delivery scoring,
+judge output handling, citation verification, the ranking signals, the promotion
+simulator, adaptive question selection and disclosure control in the analytics.
+
+#### Live speech analysis (optional)
+
+```bash
+python scripts/prepare_live_speech.py
+```
+
+Packages the Vosk model so it can run in the browser, giving the officer filler
+and pace feedback the moment they stop speaking rather than twenty seconds later
+when the server pass returns. It builds from the model the worker already uses —
+the Indian English one, because a US model reads ordinary Indian pronunciation
+as hesitation and this is the one platform that must not make that mistake.
+
+Recognition runs on the officer's machine. No audio is streamed for it, and the
+recorded answer is still measured server-side, which is what the report and the
+competency evidence are built from. Expect small differences between the live
+figure and the recorded one.
+
+Skip this and live analysis is simply off. Everything else behaves identically.
 
 ### The models, and what breaks them
 
@@ -476,6 +495,14 @@ Working end to end, on synthetic data only:
 * **Recommendation and planning** — ranked courses with the signals shown,
   prerequisite-ordered paths, the promotion simulator and the readiness
   forecast.
+* **After the interview** — courses ranked against the competencies that came
+  up weakest, plus practice that needs no booking. Most of what an interview
+  exposes is not a knowledge gap a course fills; it is that the officer knows
+  the material and cannot yet explain it under time pressure.
+* **Aggregate analytics** — interview results by axis, competency and division
+  for supervisors and administrators. Figures over fewer than five officers are
+  withheld rather than shown, because a mean over a handful of people
+  identifies them, and camera engagement is not aggregated anywhere.
 * **Access and audit** — four sign-in methods, RBAC, audit logging.
 
 Not built, and deliberately named rather than implied: the simulation task

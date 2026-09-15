@@ -9,10 +9,10 @@ import { usePageTitle } from "../hooks/usePageTitle";
 /** Four bands, and the number is always printed in the cell — colour alone
  *  fails for a colour-blind reader and prints badly in a report. */
 function band(atTarget: number) {
-  if (atTarget >= 75) return { bg: "bg-good", fg: "text-ground", label: "Met" };
-  if (atTarget >= 50) return { bg: "bg-near", fg: "text-ground", label: "Near target" };
-  if (atTarget >= 25) return { bg: "bg-warn", fg: "text-ground", label: "At risk" };
-  return { bg: "bg-critical", fg: "text-ground", label: "Critical" };
+  if (atTarget >= 75) return { bg: "bg-good", fg: "text-white", label: "Met" };
+  if (atTarget >= 50) return { bg: "bg-near", fg: "text-white", label: "Near target" };
+  if (atTarget >= 25) return { bg: "bg-warn", fg: "text-white", label: "At risk" };
+  return { bg: "bg-critical", fg: "text-white", label: "Critical" };
 }
 
 export function TeamDashboard() {

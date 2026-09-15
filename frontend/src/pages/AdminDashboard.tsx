@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { PageHeader } from "../components/Layout";
 import { Card, Empty, ErrorNote, Note, Spinner, StatTile } from "../components/ui";
-import type { AdminOverview } from "../types";
+import type { AdminOverview, InterviewAnalytics } from "../types";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { InterviewInsights } from "../components/InterviewInsights";
 
 const DOMAIN_LABELS: Record<string, string> = {
   statistical: "Statistical",
@@ -32,6 +33,7 @@ export function AdminDashboard() {
   usePageTitle("title.workforce");
 
   const [data, setData] = useState<AdminOverview | null>(null);
+  const [interviews, setInterviews] = useState<InterviewAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +43,13 @@ export function AdminDashboard() {
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load analytics."))
       .finally(() => setLoading(false));
+
+    // Separate request: interviews are voluntary, so this panel is often empty
+    // and must not stop the rest of the page rendering.
+    api
+      .get<InterviewAnalytics>("/analytics/interviews")
+      .then(setInterviews)
+      .catch(() => setInterviews(null));
   }, []);
 
   if (loading) return <Spinner label="Aggregating the national picture" />;
@@ -162,6 +171,10 @@ export function AdminDashboard() {
             </div>
           </Card>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <InterviewInsights data={interviews} />
       </div>
 
       <Card

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_roles
 from app.db import get_db
 from app.models import User, UserRole
-from app.services import acbp, analytics, efficacy, lift
+from app.services import acbp, analytics, efficacy, interview_analytics, lift
 
 router = APIRouter(tags=["analytics"])
 
@@ -96,3 +96,35 @@ def workforce_lift(
     """Aggregate competency movement — the figure a capacity building plan is
     judged against a year later."""
     return lift.workforce_lift(db, days=max(30, min(days, 730)))
+
+
+@router.get("/analytics/interviews")
+def interview_analytics_overview(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.SUPERVISOR, UserRole.ADMIN)),
+):
+    """Aggregate interview results.
+
+    A supervisor sees their own division and cannot widen the scope; an
+    administrator sees the whole system. Scope is taken from the signed-in
+    user rather than from a query parameter, so there is no division_id to
+    tamper with.
+
+    Camera engagement is not here and is not reachable from here. It is shown to
+    the officer who recorded it and to nobody else, including this screen.
+    """
+    division_id = None if actor.role == UserRole.ADMIN else actor.division_id
+    return interview_analytics.interview_overview(db, division_id=division_id)
+
+
+@router.get("/analytics/interviews/divisions")
+def interview_division_trends(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    """Interview uptake and Knowledge by division.
+
+    Administrator only. A supervisor comparing their division against a named
+    other one is a performance-management use this platform does not support.
+    """
+    return interview_analytics.division_interview_trends(db)

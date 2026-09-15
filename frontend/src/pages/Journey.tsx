@@ -103,7 +103,7 @@ export function Journey() {
                   onClick={() => index <= step && advance(index)}
                   disabled={index > step}
                   aria-current={current ? "step" : undefined}
-                  className={`rounded-full px-3.5 py-1.5 text-[12.5px] transition-colors ${
+                  className={`rounded px-3.5 py-1.5 text-[12.5px] transition-colors ${
                     current
                       ? "bg-tint-accent font-medium text-accent"
                       : done

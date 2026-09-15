@@ -199,7 +199,7 @@ export function ReviewQueue() {
           <button
             disabled={busy || !uploadFile || !uploadTitle.trim() || uploadCompetency === ""}
             onClick={upload}
-            className="mt-3 bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-3 bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Uploading..." : "Upload and generate"}
           </button>
@@ -357,7 +357,7 @@ export function ReviewQueue() {
                   <button
                     disabled={busy || (source ? !source.citation_verified : false)}
                     onClick={() => decide("approve")}
-                    className="bg-good px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="bg-good px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     Approve for use
                   </button>

@@ -104,6 +104,42 @@ def build_coaching(report: dict, gaps: list | None = None) -> Coaching:
             f"You covered {covered_total} of the points the rubric was looking for."
         )
 
+    # Mistakes lead the weaknesses: a wrong statement costs more than a missing
+    # one, because the officer will repeat it with confidence.
+    mistakes = [m for a in report.get("answers") or [] for m in (a.get("mistakes") or [])]
+    for mistake in reversed(mistakes[:3]):
+        coaching.weaknesses.insert(
+            0, f'You said "{mistake["quote"]}" — the reference answer is: '
+               f'{mistake["correction"]}.'
+        )
+    if mistakes:
+        coaching.suggestions.insert(
+            0, "Go back over the points you stated incorrectly before anything else. "
+               "An omission costs you marks; a confident wrong statement is what a "
+               "colleague will remember."
+        )
+
+    # Vocabulary. Used terms are a strength worth naming; missing ones are a
+    # concrete thing to practise, and more actionable than an axis score.
+    used_terms: list[str] = []
+    missing_terms: list[str] = []
+    for answer in report.get("answers") or []:
+        terms = answer.get("technical_terms") or {}
+        used_terms += [t for t in terms.get("used") or [] if t not in used_terms]
+        missing_terms += [t for t in terms.get("missing") or [] if t not in missing_terms]
+    missing_terms = [t for t in missing_terms if t not in used_terms]
+
+    if len(used_terms) >= 3:
+        coaching.strengths.append(
+            "You used the vocabulary of the field: " + ", ".join(used_terms[:6]) + "."
+        )
+    if missing_terms:
+        coaching.suggestions.append(
+            "Terms a complete answer would have used: " + ", ".join(missing_terms[:6])
+            + ". Naming the concept precisely is often the difference between an "
+              "answer that sounds informed and one that is."
+        )
+
     # Speech observations, kept separate from competency advice and labelled as
     # delivery so they are not read as knowledge findings.
     speech = _speech_observations(report)

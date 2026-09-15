@@ -201,7 +201,7 @@ export function Settings() {
               <button
                 disabled={busy}
                 onClick={submitDiagnostic}
-                className="bg-accent px-4 py-2 text-sm font-medium text-ground transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {busy ? "Saving…" : `Save ${Object.keys(ratings).length} rating(s)`}
               </button>
@@ -251,7 +251,7 @@ export function Settings() {
                           title={diagnostic.level_descriptions[String(level)]}
                           className={`tabular cursor-pointer border px-2.5 py-1 font-mono text-[12px] transition-colors ${
                             chosen
-                              ? "border-accent bg-accent text-ground"
+                              ? "border-accent bg-accent text-white"
                               : "border-rule-strong text-ink-2 hover:border-accent"
                           }`}
                         >

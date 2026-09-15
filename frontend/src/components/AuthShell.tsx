@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { PublicShell } from "./portal";
+
 /**
  * Shared chrome for every page you can reach while signed out: sign in,
  * register, confirm, forgot, reset.
@@ -22,19 +24,15 @@ export function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-full items-center justify-center overflow-hidden px-6 py-12">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-6rem] -z-10 h-[26rem] w-[36rem] -translate-x-1/2 animate-drift rounded-full bg-accent opacity-[0.10] blur-[110px]"
-      />
-      <div className="w-full max-w-[440px]">
-        <Link to="/" className="mb-7 inline-flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 20V13" /><path d="M9.3 20V8" /><path d="M14.7 20V15" /><path d="M20 20V4" />
-          </svg>
-          <span className="font-serif text-[21px] font-semibold tracking-[0.08em]">SANKHYA</span>
-        </Link>
-
+    <PublicShell>
+      <div className="mx-auto w-full max-w-[520px] px-4 py-10 sm:px-6">
+        <nav aria-label="Breadcrumb" className="mb-2 text-[12.5px] text-ink-3">
+          <Link to="/" className="text-accent hover:underline">
+            Home
+          </Link>
+          <span className="mx-1.5">›</span>
+          <span className="text-ink-2">{heading}</span>
+        </nav>
         <h1
           tabIndex={-1}
           ref={(node) => {
@@ -45,19 +43,19 @@ export function AuthShell({
               node.focus({ preventScroll: true });
             }
           }}
-          className="font-serif text-[24px] font-semibold leading-tight"
+          className="text-[22px] font-semibold leading-tight text-ink"
         >
           {heading}
         </h1>
         {intro && (
-          <p className="mt-2 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">{intro}</p>
+          <p className="mt-1 max-w-[56ch] text-[13.5px] leading-relaxed text-ink-2">{intro}</p>
         )}
 
-        <div className="mt-7 rounded-xl border border-rule bg-surface p-5">{children}</div>
+        <div className="mt-5 rounded border border-rule bg-surface p-5">{children}</div>
 
-        {footer && <div className="mt-5 text-[13px] text-ink-2">{footer}</div>}
+        {footer && <div className="mt-4 text-[13px] text-ink-2">{footer}</div>}
       </div>
-    </div>
+    </PublicShell>
   );
 }
 
@@ -76,7 +74,7 @@ export function Field({
     <div>
       <label
         htmlFor={id}
-        className="block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3"
+        className="block text-[13px] font-semibold text-ink"
       >
         {label}
       </label>
@@ -87,7 +85,7 @@ export function Field({
 }
 
 export const inputClass =
-  "mt-1.5 w-full rounded-md border border-rule-strong bg-surface-2 px-3 py-2 text-sm outline-none transition-colors focus:border-accent";
+  "mt-1.5 w-full rounded border border-rule-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
 
 export function SubmitButton({
   busy,
@@ -102,7 +100,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={busy || disabled}
-      className="mt-5 w-full rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-ground transition-[filter] hover:brightness-110 disabled:opacity-50"
+      className="mt-5 w-full rounded bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-50"
     >
       {children}
     </button>
