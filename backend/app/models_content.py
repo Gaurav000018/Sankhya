@@ -156,6 +156,28 @@ class GeneratedQuestion(Base):
     difficulty_p: Mapped[float | None] = mapped_column(Float)
     discrimination: Mapped[float | None] = mapped_column(Float)
 
+    # --- IRT parameters ---------------------------------------------------- #
+    # The classical pair above describe how a *sample* behaved. These describe
+    # the *item*, on the same scale as a person's ability, which is what lets
+    # the assessment choose the next question rather than pick a fixed set.
+    #
+    # They are not nullable, because an item with no difficulty cannot be
+    # selected for and would silently never be served. Every item starts with
+    # the author's intent and moves from there only when responses justify it.
+    irt_a: Mapped[float] = mapped_column(Float, default=1.3, server_default="1.3")
+    irt_b: Mapped[float] = mapped_column(Float, default=0.0, server_default="0.0")
+    # What the author said the difficulty was, kept beside what the data says.
+    # Calibration shrinks towards this rather than replacing it outright, and
+    # the distance between the two is the single most useful review signal in
+    # the bank: an item two theta harder than intended is usually miskeyed.
+    irt_b_authored: Mapped[float] = mapped_column(Float, default=0.0, server_default="0.0")
+    # The guessing floor: 1/options. Stored per item rather than assumed, so a
+    # five-option or true/false item is modelled at its own floor instead of
+    # everything being treated as a four-way choice.
+    irt_c: Mapped[float] = mapped_column(Float, default=0.25, server_default="0.25")
+    irt_sample_size: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    irt_calibrated_at: Mapped[datetime | None] = mapped_column(TS)
+
     created_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
 
     material: Mapped[Material] = relationship()
@@ -167,3 +189,13 @@ class GeneratedQuestion(Base):
     def is_publishable(self) -> bool:
         """Only approved questions reach an officer. Draft is not 'probably fine'."""
         return self.status == QuestionStatus.APPROVED
+
+    @property
+    def is_calibrated(self) -> bool:
+        """Is `irt_b` a measurement, or still the author's estimate?
+
+        Shown wherever a difficulty is displayed. An officer told a question is
+        "L4.2" deserves to know whether that came from four hundred people or
+        from one author's judgement.
+        """
+        return self.irt_calibrated_at is not None

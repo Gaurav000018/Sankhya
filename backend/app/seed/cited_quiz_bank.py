@@ -35,6 +35,14 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
+from app.ml.irt import level_to_theta
+from app.seed.quiz_bank import (
+    AUTHORED_DISCRIMINATION,
+    align_rationales,
+    to_distractor_rationales,
+)
+from app.seed.quiz_bank import _shuffled as shuffle_options
+from app.services.quiz import BLOOM_DIFFICULTY
 from app.models_content import (
     GeneratedQuestion,
     Material,
@@ -1290,15 +1298,45 @@ def seed_cited_quiz_bank(db: Session, competencies: dict, reviewer_id: int | Non
                 )
                 continue
 
+            # Shuffle the options, carrying the key and the rationales with
+            # them. Every item in this file was authored with its answer first,
+            # so without this the whole bank keys to A and a candidate who
+            # noticed would score 100% without reading a stem. Seeded from the
+            # stem, so an item does not change shape between reseeds.
+            options, correct_index, aligned = shuffle_options(
+                item.stem,
+                list(item.options),
+                item.correct_index,
+                align_rationales(
+                    item.options, item.correct_index,
+                    list(item.distractor_rationale or []),
+                ),
+            )
+            rationales = to_distractor_rationales(aligned, correct_index)
+
+            # The adaptive assessment selects on `irt_b`, so an item without one
+            # sits at exactly L3 alongside every other unparameterised item and
+            # the engine cannot tell them apart — it degrades to random
+            # selection with nothing raised. These items carry a Bloom level,
+            # which is already a statement about cognitive demand, so it is the
+            # best prior available until calibration replaces it.
+            difficulty = level_to_theta(
+                BLOOM_DIFFICULTY.get((item.bloom or "").lower(), 3.0)
+            )
+
             db.add(GeneratedQuestion(
                 material_id=material.id,
                 competency_id=competency.id,
                 stem=item.stem,
-                options=item.options,
-                correct_index=item.correct_index,
+                options=options,
+                correct_index=correct_index,
                 explanation=item.explanation,
-                distractor_rationale=item.distractor_rationale or None,
+                distractor_rationale=rationales or None,
                 bloom_level=item.bloom,
+                irt_b=difficulty,
+                irt_b_authored=difficulty,
+                irt_a=AUTHORED_DISCRIMINATION,
+                irt_c=1.0 / len(options) if options else 0.25,
                 citation_chunk_id=chunk.id,
                 citation_quote=item.quote,
                 citation_page=1,

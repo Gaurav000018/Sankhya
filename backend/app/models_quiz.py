@@ -25,6 +25,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -61,6 +62,25 @@ class QuizAttempt(Base):
     mean_difficulty: Mapped[float | None] = mapped_column(Float)
     derived_level: Mapped[float | None] = mapped_column(Float)
 
+    # --- adaptive state ---------------------------------------------------- #
+    # An adaptive attempt has no fixed item list: the next question depends on
+    # every answer so far, so the ability estimate has to live on the attempt
+    # between requests rather than being recomputed from scratch by the caller.
+    #
+    # `theta` is the posterior mean and `theta_se` its standard deviation, both
+    # on the IRT scale. `theta_se` is not decoration — it decides when the test
+    # stops and becomes the confidence on the evidence record, so an attempt
+    # that lost it would produce evidence nobody could weigh.
+    is_adaptive: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    theta: Mapped[float | None] = mapped_column(Float)
+    theta_se: Mapped[float | None] = mapped_column(Float)
+    # Why the test ended: "precision", "max_items" or "exhausted". Reported to
+    # the officer, because a test that stops after six questions without saying
+    # why reads as a malfunction.
+    stop_reason: Mapped[str | None] = mapped_column(String(24))
+
     started_at: Mapped[datetime] = mapped_column(TS, server_default=func.now())
     submitted_at: Mapped[datetime | None] = mapped_column(TS)
 
@@ -96,6 +116,24 @@ class ItemResponse(Base):
     seconds_taken: Mapped[float | None] = mapped_column(Float)
     # The order options were shown in, so a re-render matches what was answered.
     option_order: Mapped[str | None] = mapped_column(String(40))
+
+    # --- the adaptive trace ------------------------------------------------ #
+    # What the estimate was when this item was chosen, and what it became once
+    # the answer was scored. Kept per response rather than derived afterwards
+    # for two reasons: item parameters get recalibrated, so a replay months
+    # later would not reproduce the path the officer actually walked; and the
+    # officer's report shows the estimate narrowing item by item, which is the
+    # clearest explanation of adaptive testing anybody gets.
+    theta_before: Mapped[float | None] = mapped_column(Float)
+    theta_after: Mapped[float | None] = mapped_column(Float)
+    se_after: Mapped[float | None] = mapped_column(Float)
+    # Fisher information this item carried at the estimate when it was picked —
+    # how much the question was worth asking, recorded before we knew the answer.
+    item_information: Mapped[float | None] = mapped_column(Float)
+    # The difficulty in force when it was served. An item recalibrated later
+    # must not silently rewrite the history of a test already taken.
+    item_difficulty: Mapped[float | None] = mapped_column(Float)
+    asked_because: Mapped[str | None] = mapped_column(Text)
 
     answered_at: Mapped[datetime | None] = mapped_column(TS)
 

@@ -66,15 +66,50 @@ $speaker.Dispose()
 
 
 def synthesise(text: str, wav_path: Path) -> bool:
-    """Speak the text to a WAV using the Windows speech engine."""
-    script = PS_SYNTHESISE.format(wav=str(wav_path).replace("\\", "\\\\"), text=text)
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        print(f"  Speech synthesis failed: {result.stderr.strip()[:200]}")
+    """Speak the text to a WAV using whatever the host provides.
+
+    The point of synthesising rather than shipping a fixture is that the audio
+    is new every run, so a transcript that matches proves the pipeline actually
+    ran rather than that a cached result was returned.
+
+    Windows and macOS both have a system voice; Linux CI usually does not, and
+    the check reports that rather than failing.
+    """
+    if sys.platform == "darwin":
+        # `say` writes AIFF; ffmpeg converts it, and is already a hard
+        # requirement of this pipeline so it is safe to depend on here.
+        aiff = wav_path.with_suffix(".aiff")
+        spoken = subprocess.run(
+            ["say", "-r", "150", "-o", str(aiff), text], capture_output=True, text=True
+        )
+        if spoken.returncode != 0:
+            print(f"  Speech synthesis failed: {spoken.stderr.strip()[:200]}")
+            return False
+        converted = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(aiff), "-ar", "16000", "-ac", "1", str(wav_path)],
+            capture_output=True,
+        )
+        aiff.unlink(missing_ok=True)
+        if converted.returncode != 0:
+            print("  Could not convert synthesised audio to WAV")
+            return False
+    elif sys.platform == "win32":
+        script = PS_SYNTHESISE.format(
+            wav=str(wav_path).replace("\\", "\\\\"), text=text
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            print(f"  Speech synthesis failed: {result.stderr.strip()[:200]}")
+            return False
+    else:
+        print(f"  No system speech synthesiser known for {sys.platform}.")
+        print("  The component checks above still apply; only the end-to-end")
+        print("  transcription test needs audio to speak.")
         return False
+
     return wav_path.exists() and wav_path.stat().st_size > 1000
 
 

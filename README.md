@@ -75,12 +75,13 @@ dashboard. See [DEPLOYMENT.md](DEPLOYMENT.md).
 python scripts/smoke.py
 ```
 
-99 checks against the running stack — walks the whole demo narrative: sign in
+129 checks against the running stack — walks the whole demo narrative: sign in
 four ways, read the Skill Twin, rank gaps, run promotion readiness against a
 target role, catch the inflated self-rating, append evidence and watch a derived
-level move without losing history, generate a cited question and approve it,
-build a prerequisite-ordered learning path, produce the ACBP draft, and confirm
-RBAC blocks what it should.
+level move without losing history, sit a whole adaptive assessment and confirm
+the interval narrows, generate a cited question and approve it, build a
+prerequisite-ordered learning path, open an officer's record as an
+administrator, produce the ACBP draft, and confirm RBAC blocks what it should.
 
 It reseeds and flushes Redis first, so it is safe to run repeatedly. Pass
 `--no-reset` to test against data you have already changed.
@@ -91,9 +92,10 @@ Unit tests need no database or containers:
 cd backend && python -m pytest
 ```
 
-243 cases covering the reliability model, auth primitives, delivery scoring,
-judge output handling, citation verification, the ranking signals, the promotion
-simulator, adaptive question selection and disclosure control in the analytics.
+340 cases covering the IRT engine and its ability recovery, the
+reliability model, auth primitives, delivery scoring, judge output handling,
+citation verification, the ranking signals, the promotion simulator, adaptive
+question selection and disclosure control in the analytics.
 
 #### Live speech analysis (optional)
 
@@ -144,6 +146,17 @@ python scripts/check_relevance_floor.py
 Measures how far apart related and unrelated course/competency pairs actually
 sit, and fails if the recommender's floor has stopped discriminating between
 them.
+
+```bash
+python scripts/check_adaptive_gain.py
+```
+
+Simulates officers of known ability through the real adaptive loop and checks
+two things: that the estimate recovers the ability it was given, and that
+choosing items beats asking more of them. Needs no database and no model — it is
+pure arithmetic over `app/ml/irt.py`, and it is what makes the comparison table
+in [The adaptive assessment](#the-adaptive-assessment) a measurement rather than
+a claim.
 
 #### The NVIDIA driver
 
@@ -364,6 +377,164 @@ public secret is silent and every session issued that way is forgeable.
 
 ---
 
+## The adaptive assessment
+
+A fixed paper asks everybody the same questions, which means most of them are
+wrong for most people. An item far below someone's ability is answered correctly
+and teaches us nothing; one far above is missed and teaches us nothing either.
+Both still cost the officer two minutes.
+
+Item response theory fixes that by putting **items and people on one scale**. An
+item has a difficulty `b` — the ability at which someone has an even chance on
+it. A person has an ability `theta`. The distance between them predicts the
+answer, so the most informative question is always the one nearest the current
+estimate.
+
+```
+prior N(0, 1.2²)  ──>  pick the item with most Fisher information at θ̂
+                            │
+                       answer scored
+                            │
+                  posterior updated on a 161-point grid
+                            │
+        SE ≤ 0.50?  ──yes──>  stop, write evidence weighted by reliability
+             │no
+             └──> next item
+```
+
+`app/ml/irt.py` holds the mathematics and has no database in it;
+`app/services/adaptive_quiz.py` is the part that has to be careful about state.
+
+### The model is 3PL, and that is not a detail
+
+These are four-option items, so somebody who knows nothing still scores 25%. A
+two-parameter model has no way to express that, reads guessing as ability, and
+biases every low estimate upward — exactly the officers whose gaps matter most.
+So the lower asymptote is modelled, fixed at `1/options` rather than estimated:
+estimating it well needs thousands of responses per item, and a badly estimated
+one is worse than a principled constant.
+
+The cost is information. A 4-option item peaks at 0.155 of Fisher information at
+ordinary discrimination, against 0.25 for the same item with no guessing. That
+single number sets everything else.
+
+### What twelve questions can actually tell you
+
+Since SE = 1/√(total information), an SE of 0.32 — the figure that sounds
+respectable, and the one we reached for first — needs roughly **sixty**
+well-targeted items. The stopping threshold is therefore 0.50, which is what
+twelve can deliver, and corresponds to a 95% interval of about ±0.65 of a FRAC
+level.
+
+The interval is reported everywhere the level is. An assessment claiming ±0.2
+from twelve multiple-choice questions would be lying, and the lie would be
+invisible.
+
+Adaptation is what makes twelve enough to be worth doing. Against a fixed paper
+drawn from the same bank and scored by the same model:
+
+```bash
+python scripts/check_adaptive_gain.py
+```
+
+| True ability | Adaptive, 12 items | Fixed, 12 items | Fixed, 24 items |
+|---|---|---|---|
+| L1.67 | **0.73** | 0.84 | 0.66 |
+| L2.33 | **0.57** | 0.63 | 0.53 |
+| L3.00 | **0.50** | 0.57 | 0.45 |
+| L3.67 | **0.57** | 0.65 | 0.49 |
+| L4.33 | **0.65** | 0.77 | 0.57 |
+
+RMSE in theta, 400 simulated officers per row; lower is better. Choosing twelve
+items well recovers about **two-thirds of what doubling the paper would buy**,
+for half the questions — and the margin is widest at the extremes, where the
+officers a capacity-building programme most needs to identify actually sit.
+
+The same script checks the prior question, which matters more: that an officer
+who truly sits at L4 is reported near L4. It fails loudly if the estimate stops
+recovering a known ability, which is what would happen after a sign error in the
+posterior update — a bug that otherwise produces plausible numbers and no
+symptom at all.
+
+### Where the difficulties come from
+
+Every item ships with the difficulty its author intended. That is a necessary
+starting point — an uncalibrated bank cannot adapt at all — but it is a guess,
+and authors are reliably wrong in one direction: an expert who knows the answer
+cannot see what is hard about the question.
+
+`POST /item-bank/calibrate` re-fits `b` and `a` from real responses once 25
+people have answered an item, shrinking towards the authored value rather than
+replacing it. The authored figure is kept beside the calibrated one, and the
+distance between them is the most useful review signal the bank produces: an
+item two theta harder than intended is usually miskeyed.
+
+### Knowing when the bank cannot measure someone
+
+`GET /item-bank/health` reports test information across the whole L1–L5 range
+per competency, not just an item count. Twenty items all pitched at L3 measure
+L3 precisely and everything else not at all, and a count of twenty hides that.
+
+This is not decoration — it found a real hole. The first run of the expanded
+bank reported information of 0.03 at L1 for Team Leadership, whose easiest item
+sat at L2.4; an officer below that was answering questions pitched entirely
+above them. The `FOUNDATION` band in `app/seed/mcqs_extended.py` exists because
+of that report.
+
+The related failure the engine now refuses: when the most informative remaining
+item carries less than 0.02, the test **stops and says so** rather than serving
+questions that cannot move the estimate. Before that check existed, an officer
+at the bottom of the scale was asked three questions carrying 0.004, 0.001 and
+0.001 — each unanswerable, each costing them time, each reported as a real
+assessment item.
+
+### The item bank
+
+274 hand-written items across 12 competencies, 22–24 each, spanning L1.2 to
+L4.9. Every item carries a worked explanation and a rationale for each
+distractor, and is seeded APPROVED because an author writing them deliberately
+*is* the review a generated item needs.
+
+Options are shuffled at seed time, deterministically from a hash of the stem.
+That is a correctness fix, not cosmetics: as authored, 98% of one batch had its
+key at position B, because an author writing a plausible distractor first and
+the right answer second follows the shape of the explanation in their head. A
+candidate who noticed would have outscored one who knew the material.
+
+---
+
+## Officer records
+
+`/officers` is the one screen in the platform that shows a named person rather
+than an aggregate, which is why three things about it are deliberate.
+
+**Nothing on it can be edited.** There is no override and no "set level". Every
+level is derived from evidence, and the only way to affect one is to append more
+through `POST /evidence`, which is audited and attributed. An administrator who
+could type a number would make the audit trail a fiction.
+
+**The evidence travels with the level.** Each competency row shows the level,
+what the role requires, how many observations sit behind it, and what the
+strongest of those was — including the rows that have *no* evidence and are
+counted at the floor. A readiness figure with no trail is an assertion, and an
+officer being discussed by a promotion board deserves better than one.
+
+**Every drill-down is audited.** Reading a named officer's assessment history is
+a privileged act against someone who cannot see that it happened.
+
+Scope is enforced server-side: an administrator sees everyone, a supervisor sees
+their own division whatever `division_id` they pass, and an unknown officer id
+returns 404 rather than 403 so a supervisor cannot probe for who exists
+elsewhere.
+
+One number is shared rather than recomputed. Readiness on the roster is
+calculated in SQL for speed and on the detail page by `competency.role_readiness`
+in Python; a test asserts they agree, because the first version of the roster
+used a different definition and reported 10% for an officer the detail page put
+at 76%. Both were right. Having two of them under one word was the bug.
+
+---
+
 ## The recommendation engine
 
 Four signals, combined and kept separate so the explanation can name them:
@@ -485,13 +656,18 @@ Working end to end, on synthetic data only:
 * **Evidence spine** — FRAC model, append-only evidence, derivation with decay,
   gap analysis, divergence detection, historical reconstruction.
 * **AI interview** — record, transcode, transcribe, disfluency and pause
-  detection, prosody, and a rubric judge on four independent axes. Verified
+  detection, prosody, and a rubric judge on five independent axes. Verified
   against real audio by `scripts/check_speech_pipeline.py`.
 * **Question generation** — upload a document or a recording, generate MCQs with
   page-anchored citations, discard anything whose quote is not in the passage,
   and hold the rest for SME approval.
-* **Assessment** — difficulty-adjusted scoring that writes evidence, plus
-  classical item statistics.
+* **Adaptive assessment** — a 3PL item-response model that puts questions and
+  officers on one ability scale and picks each question from the answer before
+  it, with the estimate and its interval shown live. 274 curated items across 12
+  competencies, calibrated from real responses once enough people have answered.
+  Classical item statistics kept alongside.
+* **Officer records** — a scoped roster and a full per-officer record for
+  administrators and supervisors, read-only and audited.
 * **Recommendation and planning** — ranked courses with the signals shown,
   prerequisite-ordered paths, the promotion simulator and the readiness
   forecast.
@@ -506,9 +682,15 @@ Working end to end, on synthetic data only:
 * **Access and audit** — four sign-in methods, RBAC, audit logging.
 
 Not built, and deliberately named rather than implied: the simulation task
-(doing the work on real data, the strongest evidence source in the model), the
-adaptive follow-up probe, anti-cheat, a RAG-grounded judge, and question
-generation in languages other than English.
+(doing the work on real data, the strongest evidence source in the model),
+anti-cheat, a RAG-grounded judge, and question generation in languages other
+than English.
+
+The assessment's known ceiling is stated rather than hidden: a twelve-item
+four-option test resolves ability to about ±0.65 of a FRAC level at 95%, because
+guessing costs most of the information an item would otherwise carry. The
+interval is reported everywhere the level is, and `/item-bank/health` says which
+part of the scale each bank can and cannot measure.
 
 Nothing here has touched real officer data, and no interview audio is retained
 beyond the seconds it takes to analyse it.

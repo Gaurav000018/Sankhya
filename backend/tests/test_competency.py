@@ -193,3 +193,21 @@ class TestHistoricalDerivation:
                 ev(4.5, EvidenceSource.SIMULATION, days_ago=20)]
         then = derive_level(rows, as_of=NOW - timedelta(days=180))
         assert derive_level(rows).level > then.level
+
+
+def test_the_admin_rosters_sql_criticality_weights_match_the_python_ones():
+    """`services.admin` reproduces `role_readiness` in SQL for the roster, and a
+    SQL CASE cannot read a Python dict — so the weights are spelled out twice.
+
+    This is the assertion that stops them drifting. If someone reweights
+    criticality in one place, the roster and the officer's own dashboard would
+    otherwise quietly begin disagreeing, and neither would look wrong.
+    """
+    from app.models import Criticality
+    from app.services.admin import SQL_CRITICALITY_WEIGHT
+    from app.services.competency import _CRITICALITY_RANK
+
+    for criticality, rank in _CRITICALITY_RANK.items():
+        assert SQL_CRITICALITY_WEIGHT[criticality] == 1.0 + rank
+
+    assert set(SQL_CRITICALITY_WEIGHT) == set(Criticality)

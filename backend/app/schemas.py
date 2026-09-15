@@ -289,8 +289,14 @@ class LearningPathOut(BaseModel):
 
 
 class QuizStartIn(BaseModel):
+    """Opening an adaptive attempt.
+
+    There is deliberately no `item_count`. The test decides its own length from
+    how fast the estimate converges, which is the point of it — a caller that
+    could ask for three items could ask for a measurement too thin to record.
+    """
+
     competency_id: int | None = None
-    item_count: int = Field(default=8, ge=3, le=20)
 
 
 class WrittenAnswerIn(BaseModel):
@@ -301,47 +307,111 @@ class WrittenAnswerIn(BaseModel):
     answer: str = Field(min_length=20, max_length=6000)
 
 
-class QuizAnswerIn(BaseModel):
-    question_id: int
-    selected_index: int = Field(ge=0, le=5)
+# --------------------------------------------------------------------------- #
+# The adaptive assessment
+# --------------------------------------------------------------------------- #
 
 
-class QuizSubmitIn(BaseModel):
-    answers: list[QuizAnswerIn] = Field(default_factory=list)
+class AbilityOut(BaseModel):
+    """The ability estimate and how wide it is.
+
+    `level` without `level_low`/`level_high` would be a point estimate presented
+    as a fact. Twelve multiple-choice items do not support that, so the interval
+    travels with the number everywhere it is shown.
+    """
+
+    theta: float
+    se: float
+    level: float
+    level_low: float
+    level_high: float
+    reliability: float
 
 
-class QuizItemOut(BaseModel):
-    """The answer key fields are None while an attempt is open."""
+class AdaptiveItemOut(BaseModel):
+    """One question, as served. No answer key — that is the point."""
 
     sequence: int
     question_id: int
     stem: str
     options: list
     bloom_level: str
+    # Difficulty on the L1-L5 axis, and whether it is measured or authored.
+    difficulty_level: float
+    is_calibrated: bool
+    # Fisher information at the estimate when this was chosen: how much the
+    # question was worth asking, before anybody knew the answer.
+    information: float
+    asked_because: str | None
+
+
+class GradedItemOut(BaseModel):
+    """The item just answered, with the key now released."""
+
+    question_id: int
+    stem: str
+    options: list
     selected_index: int | None
-    correct_index: int | None
-    is_correct: bool | None
+    correct_index: int
+    is_correct: bool
+    skipped: bool
+    difficulty_level: float
     explanation: str | None
+    distractor_rationale: list | None
     citation: dict | None
 
 
-class QuizAttemptOut(BaseModel):
+class AdaptiveAttemptOut(BaseModel):
     id: int
     competency_id: int | None
     competency_name: str | None
     status: str
-    item_count: int
-    mean_difficulty: float | None
-    items: list[QuizItemOut]
-
-
-class QuizResultOut(BaseModel):
-    attempt: QuizAttemptOut
+    asked: int
     correct: int
-    total: int
+    min_items: int
+    max_items: int
+    target_se: float
+    ability: AbilityOut
+    current_item: AdaptiveItemOut | None
+    finished: bool
+    stop_reason: str | None = None
+    stop_explanation: str | None = None
+
+
+class AdaptiveAnswerIn(BaseModel):
+    question_id: int
+    # None is a deliberate skip, scored as incorrect but recorded as a skip so a
+    # report can tell "did not know" from "did not answer".
+    selected_index: int | None = Field(default=None, ge=0, le=5)
+    seconds_taken: float | None = Field(default=None, ge=0, le=3600)
+
+
+class AdaptiveAnswerOut(BaseModel):
+    graded: GradedItemOut
+    ability: AbilityOut
+    next_item: AdaptiveItemOut | None
+    attempt: AdaptiveAttemptOut
+    result: "AdaptiveResultOut | None" = None
+
+
+class AdaptiveResultOut(BaseModel):
+    """What the finished attempt concluded, and how it got there."""
+
+    attempt_id: int
+    competency_id: int | None
+    competency_name: str | None
+    asked: int
+    correct: int
     accuracy: float
+    ability: AbilityOut
     derived_level: float
     confidence: float
+    stop_reason: str | None
+    stop_explanation: str | None
+    mean_item_level: float | None
+    # The path the estimate took, item by item.
+    trace: list[dict]
+    review: list[GradedItemOut]
     note: str
 
 
