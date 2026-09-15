@@ -155,13 +155,86 @@ class TestSkillTwin:
 
 
 class TestQuiz:
-    def test_answer_key_is_withheld_while_the_attempt_is_open(self, client, learner):
-        response = client.post("/quizzes", json={"item_count": 3}, headers=learner)
+    """The adaptive assessment's contract with the browser.
+
+    An adaptive test hands out one question at a time, which makes the key a
+    sharper problem than it was for a fixed paper: the client now holds exactly
+    the question on screen, so anything leaked is the answer to what the officer
+    is looking at.
+    """
+
+    def _start(self, client, learner):
+        response = client.post("/quizzes", json={}, headers=learner)
         if response.status_code == 409:
             pytest.skip("no approved questions in this database")
-        attempt = response.json()
-        assert all(item["correct_index"] is None for item in attempt["items"])
-        assert all(item["explanation"] is None for item in attempt["items"])
+        assert response.status_code == 201
+        return response.json()
+
+    def test_the_open_question_carries_no_answer_key(self, client, learner):
+        attempt = self._start(client, learner)
+        item = attempt["current_item"]
+        assert item is not None
+        # Asserted as an absence of *fields*, not as null values: a future
+        # serialiser that added `correct_index` set to the real key would pass a
+        # None check written the other way round.
+        assert "correct_index" not in item
+        assert "explanation" not in item
+        assert "distractor_rationale" not in item
+
+    def test_no_item_list_is_handed_over_up_front(self, client, learner):
+        """There is no item list to leak, because question seven depends on
+        answer six. A client that received one could read ahead."""
+        attempt = self._start(client, learner)
+        assert "items" not in attempt
+
+    def test_the_key_is_released_only_for_the_item_just_answered(self, client, learner):
+        attempt = self._start(client, learner)
+        item = attempt["current_item"]
+        answer = client.post(
+            f"/quizzes/{attempt['id']}/answer",
+            json={"question_id": item["question_id"], "selected_index": 0},
+            headers=learner,
+        )
+        assert answer.status_code == 200
+        body = answer.json()
+
+        assert body["graded"]["question_id"] == item["question_id"]
+        assert body["graded"]["correct_index"] is not None
+        if body["next_item"] is not None:
+            assert "correct_index" not in body["next_item"]
+
+    def test_answering_a_question_that_is_not_open_is_refused(self, client, learner):
+        """Almost always a stale tab or a double submit. It must not be able to
+        score against whichever question the client names."""
+        attempt = self._start(client, learner)
+        response = client.post(
+            f"/quizzes/{attempt['id']}/answer",
+            json={"question_id": 999999, "selected_index": 0},
+            headers=learner,
+        )
+        assert response.status_code == 409
+
+    def test_the_estimate_always_arrives_with_its_interval(self, client, learner):
+        """A level reported without its width is a point estimate presented as a
+        fact, which twelve multiple-choice items do not support."""
+        attempt = self._start(client, learner)
+        ability = attempt["ability"]
+        assert ability["level_low"] <= ability["level"] <= ability["level_high"]
+        assert ability["se"] > 0
+
+    def test_an_attempt_belongs_to_the_officer_who_opened_it(self, client, learner, sme):
+        attempt = self._start(client, learner)
+        assert client.get(f"/quizzes/{attempt['id']}", headers=sme).status_code == 403
+
+    def test_reloading_re_serves_the_same_question(self, client, learner):
+        """Resuming must not re-choose. An officer who reloads the page cannot
+        be allowed to shop for an easier item."""
+        attempt = self._start(client, learner)
+        again = client.get(f"/quizzes/{attempt['id']}", headers=learner).json()
+        assert (
+            again["current_item"]["question_id"]
+            == attempt["current_item"]["question_id"]
+        )
 
     def test_learners_never_receive_a_draft_question(self, client, learner):
         for question in client.get("/questions/approved", headers=learner).json():
@@ -224,3 +297,136 @@ class TestEvidenceReport:
     def test_a_learner_cannot_pull_another_officers_report(self, client, learner, supervisor):
         other = client.get("/auth/me", headers=supervisor).json()
         assert client.get(f"/reports/evidence/{other['id']}", headers=learner).status_code == 403
+
+
+class TestAdminLearnerRecords:
+    """The administrator's per-officer screen.
+
+    This is the only place the platform shows a named person's assessment
+    history, which makes it the place where a scope leak would matter most and
+    the place where two screens disagreeing about a number would be most
+    damaging.
+    """
+
+    def test_a_learner_cannot_read_the_roster(self, client, learner):
+        assert client.get("/admin/learners", headers=learner).status_code == 403
+
+    def test_a_learner_cannot_read_another_officers_record(self, client, learner, admin):
+        roster = client.get("/admin/learners?page_size=1", headers=admin).json()
+        officer_id = roster["learners"][0]["user_id"]
+        assert (
+            client.get(f"/admin/learners/{officer_id}", headers=learner).status_code == 403
+        )
+
+    def test_a_supervisor_sees_only_their_own_division(self, client, supervisor, admin):
+        everyone = client.get("/admin/learners?page_size=1", headers=admin).json()
+        theirs = client.get("/admin/learners?page_size=1", headers=supervisor).json()
+        assert theirs["scope"] == "own division"
+        assert theirs["total"] < everyone["total"]
+
+    def test_a_supervisor_cannot_widen_scope_with_a_filter(
+        self, client, supervisor, admin
+    ):
+        """`division_id` is a request, not an authorisation. A supervisor asking
+        for another division must still get their own."""
+        filters = client.get("/admin/filters", headers=admin).json()
+        own = client.get("/admin/learners?page_size=1", headers=supervisor).json()
+
+        other = next(
+            (
+                d for d in filters["divisions"]
+                if d["name"]
+                != (
+                    client.get("/auth/me", headers=supervisor).json().get("division")
+                )
+            ),
+            None,
+        )
+        if other is None:
+            pytest.skip("only one division in this database")
+
+        widened = client.get(
+            f"/admin/learners?division_id={other['id']}&page_size=1",
+            headers=supervisor,
+        ).json()
+        assert widened["total"] == own["total"]
+
+    def test_a_supervisor_is_offered_only_their_own_division_as_a_filter(
+        self, client, supervisor
+    ):
+        """The filter list itself discloses the shape of the organisation."""
+        filters = client.get("/admin/filters", headers=supervisor).json()
+        assert len(filters["divisions"]) <= 1
+
+    def test_a_missing_officer_is_a_404_not_a_500(self, client, admin):
+        assert client.get("/admin/learners/999999", headers=admin).status_code == 404
+
+    def test_roster_readiness_matches_the_officers_own_figure(self, client, admin):
+        """One definition of readiness, or the roster and the officer's own
+        dashboard will disagree and a supervisor will conclude one is broken.
+
+        The roster computes it in SQL for speed and the detail page calls
+        `competency.role_readiness`. This is what stops the two drifting.
+        """
+        roster = client.get("/admin/learners?page_size=5", headers=admin).json()
+        assert roster["learners"], "no officers in this database"
+
+        for row in roster["learners"]:
+            detail = client.get(
+                f"/admin/learners/{row['user_id']}", headers=admin
+            ).json()
+            assert detail["summary"]["readiness"] == pytest.approx(
+                row["readiness"], abs=0.15
+            ), f"readiness disagrees for {row['full_name']}"
+            assert detail["summary"]["critical_gaps"] == row["critical_gaps"]
+
+    def test_the_record_carries_the_evidence_behind_every_level(self, client, admin):
+        """A level with no evidence trail is an assertion. The officer's own
+        screens show the trail; an administrator's must show the same one."""
+        roster = client.get("/admin/learners?page_size=1", headers=admin).json()
+        detail = client.get(
+            f"/admin/learners/{roster['learners'][0]['user_id']}", headers=admin
+        ).json()
+
+        assert detail["competencies"]
+        assert "evidence" in detail
+        for competency in detail["competencies"]:
+            assert "current_level" in competency
+            assert "required_level" in competency
+            assert "evidence_count" in competency
+
+    def test_there_is_no_write_path_to_an_officers_record(self, client, admin):
+        """Levels are derived from evidence. An administrator who could edit one
+        directly would break the audit trail the design rests on."""
+        roster = client.get("/admin/learners?page_size=1", headers=admin).json()
+        officer_id = roster["learners"][0]["user_id"]
+        for method in (client.patch, client.put, client.delete):
+            assert method(f"/admin/learners/{officer_id}").status_code in (401, 404, 405)
+
+    def test_reading_a_record_is_written_to_the_audit_log(self, client, admin):
+        """Reading a named officer's assessment history is a privileged act
+        against someone who cannot see that it happened."""
+        from sqlalchemy import text as sql_text
+
+        from app.db import engine
+
+        roster = client.get("/admin/learners?page_size=1", headers=admin).json()
+        officer_id = roster["learners"][0]["user_id"]
+
+        with engine.connect() as conn:
+            before = conn.execute(
+                sql_text(
+                    "SELECT count(*) FROM audit_log WHERE action = 'admin.learner_viewed'"
+                )
+            ).scalar_one()
+
+        client.get(f"/admin/learners/{officer_id}", headers=admin)
+
+        with engine.connect() as conn:
+            after = conn.execute(
+                sql_text(
+                    "SELECT count(*) FROM audit_log WHERE action = 'admin.learner_viewed'"
+                )
+            ).scalar_one()
+
+        assert after == before + 1

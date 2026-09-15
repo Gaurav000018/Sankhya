@@ -312,7 +312,8 @@ def main() -> int:
           "fluency cannot be scored fairly before the baseline is captured")
 
     axes = iv.get("axes", {})
-    check("Four independent axes", set(axes) == {"knowledge", "structure", "fluency", "confidence"},
+    check("Five independent axes",
+          set(axes) == {"knowledge", "structure", "communication", "fluency", "confidence"},
           ", ".join(sorted(axes)))
     banned = {"overall", "composite", "total_score", "final_score", "score"}
     top_level = banned & set(iv)
@@ -322,9 +323,9 @@ def main() -> int:
         per_answer |= banned & set(a.get("scores") or {})
     check("No composite score field exists", not (top_level | per_answer),
           f"found {top_level | per_answer}" if (top_level | per_answer)
-          else "four axes and nothing that aggregates them")
+          else "five axes and nothing that aggregates them")
     check("Report carries its own disclosure",
-          "four independent axes" in (iv.get("disclosure", {}).get("note", "") or "").lower())
+          "five independent axes" in (iv.get("disclosure", {}).get("note", "") or "").lower())
     check("Accommodation setting captured on the session",
           isinstance(iv.get("fluency_scoring_enabled"), bool))
     check("Baseline not yet captured", iv.get("baseline", {}).get("captured") is False)
@@ -397,10 +398,88 @@ def main() -> int:
                   items[-1]["included_because"] is None,
                   "the last course is a step, not an unlock")
 
+    section("Adaptive assessment (IRT)")
+    status, attempt = call("POST", "/quizzes", {}, token=token)
+    check("Adaptive attempt opens", status == 201, attempt.get("competency_name", ""))
+
+    if status == 201:
+        item = attempt.get("current_item")
+        check("One question is served, not a paper",
+              item is not None and "items" not in attempt,
+              "question seven depends on answer six, so there is no list to hand over")
+        check("The open question carries no answer key",
+              item is not None and "correct_index" not in item and "explanation" not in item)
+        check("The question states its own difficulty",
+              item is not None and isinstance(item.get("difficulty_level"), (int, float))
+              and 1.0 <= item["difficulty_level"] <= 5.0,
+              f"L{item.get('difficulty_level')}" if item else "")
+        check("The question says why it was chosen",
+              bool(item and item.get("asked_because")),
+              "an assessment that silently changes difficulty is a black box")
+
+        prior = attempt["ability"]
+        check("Ability starts at the population prior, not at the officer's record",
+              abs(prior["theta"]) < 0.05 and prior["reliability"] < 0.02,
+              "otherwise a quiz partly re-reports what the Skill Twin already believed")
+        check("The estimate always carries its interval",
+              prior["level_low"] < prior["level"] < prior["level_high"],
+              f"L{prior['level']} ({prior['level_low']}-{prior['level_high']})")
+
+        # Walk the whole attempt, always choosing the first option. What the
+        # score comes out as does not matter; that it converges and stops does.
+        difficulties, widths, asked = [], [prior["level_high"] - prior["level_low"]], 0
+        result = None
+        while item is not None and asked < 25:
+            difficulties.append(item["difficulty_level"])
+            status, out = call("POST", f"/quizzes/{attempt['id']}/answer",
+                               {"question_id": item["question_id"], "selected_index": 0},
+                               token=token)
+            if status != 200:
+                break
+            asked += 1
+            widths.append(out["ability"]["level_high"] - out["ability"]["level_low"])
+            result = out.get("result")
+            item = out.get("next_item")
+
+        check("The key is released for the answered question only",
+              status == 200 and out["graded"]["correct_index"] is not None
+              and (out["next_item"] is None or "correct_index" not in out["next_item"]))
+        check("The test decides its own length", result is not None,
+              f"{asked} questions, stopped because {result.get('stop_reason')}" if result else "")
+        check("Difficulty moved with the answers", len(set(difficulties)) > 1,
+              f"L{min(difficulties):.1f} to L{max(difficulties):.1f}" if difficulties else "")
+        check("The interval narrowed", widths[-1] < widths[0],
+              f"{widths[0]:.2f} -> {widths[-1]:.2f} levels wide")
+
+        if result:
+            check("It says why it stopped", bool(result.get("stop_explanation")),
+                  result["stop_explanation"][:70])
+            check("Evidence weight is the reliability of the estimate",
+                  0.0 <= result["confidence"] <= 1.0
+                  and result["confidence"] > 0.3,
+                  f"{result['confidence']} — marginal reliability, not a made-up constant")
+            check("The adaptive path is recoverable",
+                  len(result.get("trace") or []) == result["asked"],
+                  "an officer's report shows the estimate narrowing item by item")
+
+            status, twin = call("GET", "/skill-twin/me", token=token)
+            recorded = next(
+                (c for c in twin.get("competencies", [])
+                 if c["competency_id"] == result["competency_id"]), None)
+            check("The result became competency evidence",
+                  recorded is not None,
+                  f"{result['competency_name']} now L{recorded['level']}" if recorded else "")
+
+    status, health = call("GET", "/item-bank/health", token=sup_token)
+    check("Bank health is not public", status == 403, "supervisors are not SMEs here")
+
     section("Quiz generation and SME review")
     status, sme = call("POST", "/auth/login",
                        {"email": "sme@sankhya.gov.in", "password": PASSWORD})
     sme_token = sme.get("access_token", "")
+    status, admin_login = call("POST", "/auth/login",
+                               {"email": "admin@sankhya.gov.in", "password": PASSWORD})
+    admin_only_token = admin_login.get("access_token", "")
     check("SME sign-in", status == 200)
 
     material_text = (
@@ -523,6 +602,66 @@ def main() -> int:
         status, stats = call("GET", "/questions", token=sme_token)
         check("Review statistics available", status == 200 and "by_status" in stats,
               f"{stats.get('by_status')}")
+
+        status, health = call("GET", "/item-bank/health", token=sme_token)
+        competencies = health.get("competencies", []) if status == 200 else []
+        check("Bank health reported per competency", status == 200 and competencies,
+              f"{len(competencies)} competencies")
+        if competencies:
+            check("Every competency has enough items to adapt over",
+                  all(c["adaptive_ready"] for c in competencies),
+                  f"minimum {min(c['items'] for c in competencies)} items")
+            check("Item difficulty actually spans the scale",
+                  all(c["difficulty_range"]["highest_level"]
+                      - c["difficulty_range"]["lowest_level"] > 2.0
+                      for c in competencies),
+                  "a bank clumped at one level measures one level")
+            check("Bank health reports where it is weakest rather than a pass mark",
+                  all("information_curve" in c and c.get("weakest_level")
+                      for c in competencies),
+                  "item count alone hides a blind spot")
+
+        status, dry = call("POST", "/item-bank/calibrate?dry_run=true", {}, token=sme_token)
+        check("Calibration can be previewed without writing", status == 200,
+              f"{dry.get('calibrated', 0)} calibrated, {dry.get('skipped', 0)} left "
+              f"with the author's difficulty")
+        check("Thinly answered items keep the author's difficulty",
+              dry.get("min_responses", 0) >= 20,
+              f"needs {dry.get('min_responses')} responses — two parameters need more "
+              f"than a p-value does")
+
+    section("Officer records (administrator)")
+    status, roster = call("GET", "/admin/learners?page_size=5", token=admin_only_token)
+    check("Roster lists officers", status == 200 and roster.get("learners"),
+          f"{roster.get('total')} officers, {roster.get('scope')}")
+    check("Learners cannot read the roster",
+          call("GET", "/admin/learners", token=token)[0] == 403)
+
+    status, sup_roster = call("GET", "/admin/learners?page_size=5", token=sup_token)
+    check("A supervisor sees only their own division",
+          status == 200 and sup_roster["total"] < roster.get("total", 0),
+          f"{sup_roster['total']} of {roster.get('total')}")
+
+    if roster.get("learners"):
+        subject = roster["learners"][0]
+        status, record = call("GET", f"/admin/learners/{subject['user_id']}",
+                              token=admin_only_token)
+        check("One officer's whole record assembles", status == 200,
+              f"{record['profile']['full_name']}: "
+              f"{len(record.get('competencies', []))} competencies, "
+              f"{len(record.get('evidence', []))} evidence rows")
+        check("Readiness agrees with the officer's own figure",
+              abs(record["summary"]["readiness"] - subject["readiness"]) < 0.2,
+              "one definition, or the roster and the dashboard disagree")
+        check("Every level carries the evidence behind it",
+              all("evidence_count" in c for c in record.get("competencies", [])),
+              "a readiness figure with no trail is an assertion")
+        check("There is no write path to an officer's record",
+              call("PATCH", f"/admin/learners/{subject['user_id']}",
+                   {"readiness": 100}, token=admin_only_token)[0] in (404, 405),
+              "levels are derived from evidence; an editable one breaks the audit trail")
+        check("A learner cannot read another officer's record",
+              call("GET", f"/admin/learners/{subject['user_id']}", token=token)[0] == 403)
 
     section("Governance output")
     status, plan = call("GET", "/analytics/acbp", token=sup_token)

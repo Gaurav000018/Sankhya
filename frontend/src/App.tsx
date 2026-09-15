@@ -5,6 +5,7 @@ import { canAccess, useAuth } from "./auth";
 import { Layout, PageHeader } from "./components/Layout";
 import { Empty, Spinner } from "./components/ui";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminLearners } from "./pages/AdminLearners";
 import { CapacityPlan } from "./pages/CapacityPlan";
 import { Interview } from "./pages/Interview";
 import { Journey } from "./pages/Journey";
@@ -114,6 +115,14 @@ export function App() {
         element={
           <Protected path="/review">
             <ReviewQueue />
+          </Protected>
+        }
+      />
+      <Route
+        path="/officers"
+        element={
+          <Protected path="/officers">
+            <AdminLearners />
           </Protected>
         }
       />

@@ -69,9 +69,9 @@ export function useAuth(): AuthState {
  *  still the authority; this only keeps people out of screens that would fail. */
 export const ROLE_ROUTES: Record<string, string[]> = {
   learner: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/interview", "/settings"],
-  supervisor: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/interview", "/settings"],
+  supervisor: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/officers", "/interview", "/settings"],
   sme: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/review", "/interview", "/settings"],
-  admin: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/review", "/admin", "/acbp", "/interview", "/settings"],
+  admin: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/officers", "/review", "/admin", "/acbp", "/interview", "/settings"],
 };
 
 export function canAccess(role: string | undefined, path: string): boolean {

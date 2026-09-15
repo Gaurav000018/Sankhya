@@ -5,11 +5,17 @@ import { prefersReducedMotionNow, useInView } from "../../hooks/useReveal";
 /**
  * A real adaptive assessment, eight items long, run in the browser.
  *
- * Not a metaphor. This is a two-parameter IRT model with a grid posterior:
- * each item is placed at the current ability estimate (where a 2PL item is
- * most informative), the response is scored, the posterior is updated, and
- * the 95% interval visibly narrows. The whole point of the method is that
- * the interval tightens fast when items are chosen well — so show it.
+ * Not a metaphor, and — more importantly — not a different model from the one
+ * the product runs. This is the same three-parameter logistic the backend
+ * scores with (`app/ml/irt.py`), with a grid posterior: each item is placed at
+ * the current ability estimate, the response is scored, the posterior is
+ * updated, and the 95% interval visibly narrows.
+ *
+ * The guessing parameter is the part that matters and the part it is tempting
+ * to leave out of a demo. These are four-option items, so somebody who knows
+ * nothing still scores 25%, and a 2PL demo — which this was — converges faster
+ * and tighter than the real assessment ever can. Advertising a precision the
+ * product cannot deliver is the one thing a live demo must not do.
  *
  * The responses come from a fixed pseudo-random sequence rather than
  * Math.random(), so the demo tells the same story on every load and a judge
@@ -18,11 +24,17 @@ import { prefersReducedMotionNow, useInView } from "../../hooks/useReveal";
 
 const GRID = Array.from({ length: 161 }, (_, i) => -4 + i * 0.05);
 const DISCRIMINATION = 1.4;
+/** The guessing floor: 1/options, for the four-option items the bank holds. */
+const GUESSING = 0.25;
 const TRUE_THETA = 0.85;
 const PRIOR_SD = 1.2;
 const REQUIRED_THETA = 1.2;
 const ITEMS = 8;
 const DRAWS = [0.31, 0.77, 0.12, 0.58, 0.91, 0.44, 0.66, 0.23];
+
+/** P(correct) under the 3PL, matching `app/ml/irt.probability`. */
+const probability = (theta: number, b: number) =>
+  GUESSING + (1 - GUESSING) / (1 + Math.exp(-DISCRIMINATION * (theta - b)));
 
 /** FRAC L1–L5 sits on θ ∈ [-3, 3] linearly, with L3 at θ = 0. */
 const toLevel = (theta: number) => 3 + theta * (2 / 3);
@@ -50,10 +62,9 @@ function simulate(): Step[] {
 
   for (let i = 0; i < ITEMS; i++) {
     const b = Math.round(mean * 10) / 10;
-    const pTrue = 1 / (1 + Math.exp(-DISCRIMINATION * (TRUE_THETA - b)));
-    const correct = DRAWS[i] < pTrue;
+    const correct = DRAWS[i] < probability(TRUE_THETA, b);
     post = post.map((p, k) => {
-      const pk = 1 / (1 + Math.exp(-DISCRIMINATION * (GRID[k] - b)));
+      const pk = probability(GRID[k], b);
       return p * (correct ? pk : 1 - pk);
     });
     [mean, sd] = summarise();
@@ -96,7 +107,7 @@ export function IrtDemo() {
         <div>
           <div className="flex items-baseline justify-between gap-4">
             <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-3">
-              Ability estimate · 2PL adaptive session
+              Ability estimate · 3PL adaptive session
             </div>
             <div className="tabular font-mono text-[11px] text-ink-3">
               item {Math.min(step, ITEMS)} of {ITEMS}

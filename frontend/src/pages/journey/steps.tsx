@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ApiError, api } from "../../api";
+import { AbilityScale, AbilityTrace } from "../../components/AbilityScale";
+import type { TraceStep } from "../../components/AbilityScale";
 import { Empty, ErrorNote, Spinner } from "../../components/ui";
 import type { Gap, JourneyOut, WrittenAnswerOut } from "../../types";
 
@@ -229,61 +231,108 @@ export function DiagnosticStep({ onNext }: { onNext: () => void }) {
 
 /* ----------------------------------------------------------- 3. assessment -- */
 
-interface QuizItem {
-  sequence: number;
+interface AdaptiveItem {
   question_id: number;
   stem: string;
   options: string[];
+  difficulty_level: number;
+  asked_because: string | null;
+}
+
+interface JourneyAbility {
+  theta: number;
+  se: number;
+  level: number;
+  level_low: number;
+  level_high: number;
+  reliability: number;
+}
+
+interface JourneyAttempt {
+  id: number;
+  competency_name: string;
+  asked: number;
+  correct: number;
+  min_items: number;
+  max_items: number;
+  ability: JourneyAbility;
+  current_item: AdaptiveItem | null;
+  finished: boolean;
+}
+
+interface JourneyGraded {
+  question_id: number;
+  correct_index: number;
   selected_index: number | null;
-  correct_index: number | null;
-  is_correct: boolean | null;
+  is_correct: boolean;
   explanation: string | null;
 }
 
-interface QuizAttempt {
-  id: number;
-  competency_name: string;
-  items: QuizItem[];
-}
-
-interface QuizResult {
+interface JourneyResult {
+  asked: number;
   correct: number;
-  total: number;
   accuracy: number;
+  ability: JourneyAbility;
   derived_level: number;
   confidence: number;
-  note: string;
+  stop_explanation: string | null;
+  trace: TraceStep[];
 }
 
+interface JourneyAnswerOut {
+  graded: JourneyGraded;
+  ability: JourneyAbility;
+  next_item: AdaptiveItem | null;
+  attempt: JourneyAttempt;
+  result: JourneyResult | null;
+}
+
+/**
+ * The assessment step, one question at a time.
+ *
+ * The journey used to show a fixed page of six questions. It is adaptive now,
+ * which changes the shape of this step rather than just its contents: there is
+ * no list to render, so it advances question by question, and the ability band
+ * is drawn throughout because watching it narrow is the clearest explanation of
+ * what is happening that the product contains.
+ */
 export function AssessmentStep({ onNext }: { onNext: () => void }) {
-  const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
-  const [chosen, setChosen] = useState<Record<number, number>>({});
-  const [result, setResult] = useState<QuizResult | null>(null);
+  const [attempt, setAttempt] = useState<JourneyAttempt | null>(null);
+  const [item, setItem] = useState<AdaptiveItem | null>(null);
+  const [ability, setAbility] = useState<JourneyAbility | null>(null);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [graded, setGraded] = useState<JourneyGraded | null>(null);
+  const [result, setResult] = useState<JourneyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
-      .post<QuizAttempt>("/quizzes", {})
-      .then(setAttempt)
+      .post<JourneyAttempt>("/quizzes", {})
+      .then((a) => {
+        setAttempt(a);
+        setItem(a.current_item);
+        setAbility(a.ability);
+      })
       .catch((e) => setError(e instanceof ApiError ? e.message : "Could not start."))
       .finally(() => setLoading(false));
   }, []);
 
-  async function submit() {
-    if (!attempt) return;
+  async function answer(selected: number | null) {
+    if (!attempt || !item) return;
     setBusy(true);
     setError(null);
     try {
-      setResult(
-        await api.post<QuizResult>(`/quizzes/${attempt.id}/submit`, {
-          answers: Object.entries(chosen).map(([qid, index]) => ({
-            question_id: Number(qid),
-            selected_index: index,
-          })),
-        }),
-      );
+      const out = await api.post<JourneyAnswerOut>(`/quizzes/${attempt.id}/answer`, {
+        question_id: item.question_id,
+        selected_index: selected,
+      });
+      setGraded(out.graded);
+      setAbility(out.ability);
+      setAttempt(out.attempt);
+      setItem(out.next_item);
+      if (out.result) setResult(out.result);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not submit.");
     } finally {
@@ -291,22 +340,30 @@ export function AssessmentStep({ onNext }: { onNext: () => void }) {
     }
   }
 
-  if (loading) return <Spinner label="Selecting items for your widest gap" />;
+  if (loading) return <Spinner label="Choosing a first question for your widest gap" />;
   if (error && !attempt) return <ErrorNote message={error} />;
   if (!attempt) return <Empty>No assessment could be started.</Empty>;
 
-  if (result) {
+  if (result && !graded) {
     return (
       <StepShell
         eyebrow="Step 3 of 5"
         title="Assessment complete"
-        lede={`${attempt.competency_name} — ${result.correct} of ${result.total} correct.`}
+        lede={`${attempt.competency_name} — ${result.correct} of ${result.asked} correct, over questions chosen from how you answered.`}
       >
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            ["Score", `${result.correct}/${result.total}`, `${Math.round(result.accuracy)}% correct`],
-            ["Derived level", `L${result.derived_level}`, "adjusted for item difficulty"],
-            ["Confidence", `${result.confidence}`, "weight this evidence carries"],
+            [
+              "Assessed level",
+              `L${result.derived_level}`,
+              `95% interval L${result.ability.level_low}–L${result.ability.level_high}`,
+            ],
+            ["Questions", `${result.asked}`, `${Math.round(result.accuracy)}% correct`],
+            [
+              "Evidence weight",
+              result.confidence.toFixed(2),
+              "how much of the range this resolved",
+            ],
           ].map(([label, value, note]) => (
             <div key={label} className="rounded-lg border border-rule bg-surface-2 px-4 py-3.5">
               <div className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-ink-3">
@@ -317,9 +374,17 @@ export function AssessmentStep({ onNext }: { onNext: () => void }) {
             </div>
           ))}
         </div>
-        <p className="mt-5 border-l-2 border-accent bg-tint-accent px-4 py-3 text-[13px] leading-relaxed text-ink-2">
-          {result.note}
-        </p>
+
+        <div className="mt-5 rounded-lg border border-rule bg-surface-2 px-4 py-4">
+          <AbilityTrace steps={result.trace} />
+        </div>
+
+        {result.stop_explanation && (
+          <p className="mt-5 border-l-2 border-accent bg-tint-accent px-4 py-3 text-[13px] leading-relaxed text-ink-2">
+            {result.stop_explanation}
+          </p>
+        )}
+
         <div className="mt-6">
           <PrimaryButton onClick={onNext}>Continue to the interview</PrimaryButton>
         </div>
@@ -327,61 +392,95 @@ export function AssessmentStep({ onNext }: { onNext: () => void }) {
     );
   }
 
-  const allAnswered = Object.keys(chosen).length === attempt.items.length;
+  const showing = graded ? null : item;
 
   return (
     <StepShell
       eyebrow="Step 3 of 5"
       title={`Assessment — ${attempt.competency_name}`}
-      lede="Chosen because this is your widest measured gap. Quizzing you on what you already know would measure nothing."
+      lede="Chosen because this is your widest measured gap. Each question is picked to sit near where you are currently estimated, which is where an answer tells us the most."
     >
       {error && <ErrorNote message={error} />}
-      <ol className="space-y-6">
-        {attempt.items.map((item, index) => (
-          <li key={item.question_id}>
-            <div className="flex gap-3">
-              <span className="tabular mt-[2px] shrink-0 font-mono text-[12px] text-ink-3">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] leading-relaxed">{item.stem}</p>
-                <div className="mt-3 space-y-2">
-                  {item.options.map((option, oi) => {
-                    const active = chosen[item.question_id] === oi;
-                    return (
-                      <button
-                        key={oi}
-                        onClick={() =>
-                          setChosen((c) => ({ ...c, [item.question_id]: oi }))
-                        }
-                        aria-pressed={active}
-                        className={`flex w-full gap-3 rounded-md border px-3.5 py-2.5 text-left text-[13.5px] transition-colors ${
-                          active
-                            ? "border-accent bg-tint-accent text-ink"
-                            : "border-rule text-ink-2 hover:border-rule-strong"
-                        }`}
-                      >
-                        <span className="font-mono text-[11px] text-ink-3">
-                          {String.fromCharCode(65 + oi)}
-                        </span>
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-7 flex flex-wrap items-center gap-4">
-        <PrimaryButton onClick={submit} busy={busy} disabled={!allAnswered}>
-          Submit assessment
-        </PrimaryButton>
-        <span className="tabular font-mono text-[12px] text-ink-3">
-          {Object.keys(chosen).length} of {attempt.items.length} answered
-        </span>
-      </div>
+
+      {ability && (
+        <div className="mb-6 rounded-lg border border-rule bg-surface-2 px-4 py-3.5">
+          <AbilityScale
+            ability={ability}
+            itemLevel={showing?.difficulty_level ?? null}
+            label={`Question ${attempt.asked + (graded ? 0 : 1)} of at most ${attempt.max_items}`}
+          />
+        </div>
+      )}
+
+      {showing && showing.asked_because && (
+        <p className="mb-4 border-l-2 border-brass px-4 py-2 text-[12.5px] leading-relaxed text-ink-3">
+          {showing.asked_because}
+        </p>
+      )}
+
+      {showing && (
+        <>
+          <p className="text-[14.5px] leading-relaxed">{showing.stem}</p>
+          <div className="mt-4 space-y-2">
+            {showing.options.map((option, oi) => {
+              const active = chosen === oi;
+              return (
+                <button
+                  key={oi}
+                  onClick={() => setChosen(oi)}
+                  aria-pressed={active}
+                  className={`flex w-full gap-3 rounded-md border px-3.5 py-2.5 text-left text-[13.5px] transition-colors ${
+                    active
+                      ? "border-accent bg-tint-accent text-ink"
+                      : "border-rule text-ink-2 hover:border-rule-strong"
+                  }`}
+                >
+                  <span className="font-mono text-[11px] text-ink-3">
+                    {String.fromCharCode(65 + oi)}
+                  </span>
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-7">
+            <PrimaryButton
+              onClick={() => answer(chosen)}
+              busy={busy}
+              disabled={chosen === null}
+            >
+              Answer
+            </PrimaryButton>
+          </div>
+        </>
+      )}
+
+      {graded && (
+        <div className="rounded-lg border border-rule bg-surface-2 px-4 py-4">
+          <div
+            className={`text-[11px] font-semibold uppercase tracking-[0.07em] ${
+              graded.is_correct ? "text-good" : "text-critical"
+            }`}
+          >
+            {graded.is_correct ? "Correct" : "Incorrect"}
+          </div>
+          {graded.explanation && (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-ink-2">
+              {graded.explanation}
+            </p>
+          )}
+          <div className="mt-5">
+            <PrimaryButton
+              onClick={() => {
+                setGraded(null);
+                setChosen(null);
+              }}
+            >
+              {attempt.finished ? "See the result" : "Next question"}
+            </PrimaryButton>
+          </div>
+        </div>
+      )}
     </StepShell>
   );
 }

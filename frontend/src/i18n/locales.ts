@@ -29,6 +29,7 @@ const en = {
   "nav.team": "Team",
   "nav.review": "Review queue",
   "nav.workforce": "Workforce",
+  "nav.officers": "Officers",
   "nav.capacityPlan": "Capacity plan",
   "nav.quiz": "Assessment",
   "nav.interview": "Interview",
@@ -47,6 +48,7 @@ const en = {
   // Hindi page in an English tab.
   "title.landing": "Workforce intelligence",
   "title.dashboard": "Dashboard",
+  "title.learners": "Officer records",
   "title.journey": "Measure where you stand",
   "title.learning": "Development plan",
   "title.promotion": "Promotion outlook",
@@ -132,6 +134,12 @@ const en = {
   "dashboard.reportGenerating": "Generating…",
   "dashboard.years": "years of service",
 
+  // The adaptive assessment
+  "quiz.legend.correct": "Answered correctly",
+  "quiz.legend.incorrect": "Answered incorrectly",
+  "quiz.legend.estimate": "Your estimated level",
+  "quiz.legend.interval": "95% interval",
+
   // Evidence sources
   "source.simulation": "Simulation on live data",
   "source.quiz": "Quiz",
@@ -159,6 +167,8 @@ const hi: Partial<Record<MessageKey, string>> = {
   "nav.team": "दल",
   "nav.review": "समीक्षा सूची",
   "nav.workforce": "कार्यबल",
+  "nav.officers": "अधिकारी",
+  "title.learners": "अधिकारी अभिलेख",
   "nav.capacityPlan": "क्षमता योजना",
   "nav.quiz": "मूल्यांकन",
   "nav.interview": "साक्षात्कार",
@@ -257,6 +267,11 @@ const hi: Partial<Record<MessageKey, string>> = {
   "dashboard.report": "साक्ष्य रिपोर्ट (PDF)",
   "dashboard.reportGenerating": "तैयार हो रही है…",
   "dashboard.years": "वर्ष की सेवा",
+
+  "quiz.legend.correct": "सही उत्तर",
+  "quiz.legend.incorrect": "गलत उत्तर",
+  "quiz.legend.estimate": "आपका आकलित स्तर",
+  "quiz.legend.interval": "95% अंतराल",
 
   "source.simulation": "वास्तविक आँकड़ों पर अनुरूपण",
   "source.quiz": "प्रश्नोत्तरी",

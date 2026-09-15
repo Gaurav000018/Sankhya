@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
+    admin,
     analytics,
     auth,
     competency,
@@ -92,6 +93,7 @@ app.include_router(analytics.router)
 app.include_router(learning.router)
 app.include_router(quiz.router)
 app.include_router(onboarding.router)
+app.include_router(admin.router)
 
 
 @app.get("/health", tags=["ops"])

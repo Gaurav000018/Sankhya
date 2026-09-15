@@ -1,48 +1,38 @@
-"""Taking a quiz, and what the results are worth.
+"""The item catalogue, and classical item analysis over it.
 
-Two things here are deliberate:
+Taking an assessment moved to `app.services.adaptive_quiz` when the fixed form
+was replaced by an adaptive one. What stayed here is everything about the
+*items* rather than the sitting: which are servable, how they have behaved, and
+whether the bank is healthy enough to be trusted.
 
 **Only approved questions are ever served.** There is no parameter that lets a
 draft through. Everything an officer sees has been read by a subject expert.
 
-**Difficulty is part of the score.** 80% on a hard paper is not the same result
-as 80% on an easy one, so the derived level is anchored on the mean difficulty
-of the items actually asked. Reporting accuracy alone would make an easy quiz
-look like competence.
+**Classical statistics are kept alongside IRT, not replaced by it.** A p-value
+and a point-biserial need no model to be believed, and a negative point-biserial
+is still the fastest way to find a miskeyed item — it shows up after a dozen
+responses, where an IRT calibration needs twenty-five. The two answer different
+questions and a reviewer wants both.
 """
 
 from __future__ import annotations
 
-import random
-from dataclasses import dataclass
-from datetime import datetime, timezone
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, EvidenceSource, User
+from app.ml import irt
+from app.models import User
 from app.models_content import GeneratedQuestion, QuestionStatus
 from app.models_quiz import AttemptStatus, ItemResponse, QuizAttempt
-from app.services.competency import analyse_gaps, record_evidence
 
-DEFAULT_ITEM_COUNT = 8
-MIN_ITEMS = 3
-
-# An attempt this short says very little; the evidence it produces is weighted
-# down accordingly rather than being refused.
-CONFIDENCE_FLOOR = 0.4
-CONFIDENCE_PER_ITEM = 0.08
-
-# Difficulty of a "neutral" paper. Harder than this lifts the derived level for
-# the same accuracy; easier lowers it.
-NEUTRAL_DIFFICULTY = 3.0
-DIFFICULTY_WEIGHT = 0.5
-
-# A question carries no authored difficulty — it carries a Bloom level, which is
-# already a statement about cognitive demand. Mapping that to a number keeps the
-# two ideas connected rather than asking an author to guess on a second scale.
-# `difficulty_p` is not a substitute: it is the *observed* p-value and only
-# exists once people have attempted the item.
+# A Bloom level is already a statement about cognitive demand, so it is the
+# natural prior for an item whose author gave no explicit difficulty. This maps
+# one to the other and is used when seeding the bank; from there `irt_b` takes
+# over and is calibrated from responses.
+#
+# `difficulty_p` is not a substitute for either: it is the *observed* p-value,
+# it only exists once people have attempted the item, and it says more about who
+# attempted it than about the item.
 BLOOM_DIFFICULTY: dict[str, float] = {
     "remember": 2.0,
     "understand": 2.6,
@@ -55,20 +45,16 @@ BLOOM_DIFFICULTY: dict[str, float] = {
 
 
 def question_difficulty(question: GeneratedQuestion) -> float:
-    return BLOOM_DIFFICULTY.get((question.bloom_level or "").lower(), NEUTRAL_DIFFICULTY)
+    """The Bloom-implied difficulty on the FRAC L1-L5 axis.
+
+    A prior for an item nobody has given an explicit difficulty to. Seeding uses
+    it; nothing that serves an item does, because by then `irt_b` exists.
+    """
+    return BLOOM_DIFFICULTY.get((question.bloom_level or "").lower(), 3.0)
 
 
 class QuizError(Exception):
     """Something the caller did wrong, surfaced as a 4xx."""
-
-
-@dataclass
-class QuizResult:
-    attempt: QuizAttempt
-    derived_level: float
-    confidence: float
-    correct: int
-    total: int
 
 
 def available_questions(
@@ -81,173 +67,6 @@ def available_questions(
     if competency_id is not None:
         stmt = stmt.where(GeneratedQuestion.competency_id == competency_id)
     return list(db.scalars(stmt.limit(limit)).all())
-
-
-def start_attempt(
-    db: Session,
-    *,
-    user: User,
-    competency_id: int | None = None,
-    item_count: int = DEFAULT_ITEM_COUNT,
-) -> QuizAttempt:
-    """Open an attempt over approved questions.
-
-    With no competency named, items are drawn from the officer's widest gap —
-    quizzing someone on what they already know measures nothing.
-    """
-    if competency_id is None:
-        gaps = [g for g in analyse_gaps(db, user=user) if g.is_gap]
-        for gap in gaps:
-            if available_questions(db, competency_id=gap.competency_id):
-                competency_id = gap.competency_id
-                break
-
-    if competency_id is None:
-        # An officer with no FRAC role yet — newly registered, awaiting an
-        # administrator — has no gaps, so there is nothing to target. Refusing
-        # would leave them unable to be assessed at all until someone else acts.
-        # Any competency with an item bank still produces real evidence; it is
-        # simply not aimed at a gap, because no gap is known yet.
-        fallback = db.scalar(
-            select(GeneratedQuestion.competency_id)
-            .where(
-                GeneratedQuestion.status == QuestionStatus.APPROVED,
-                GeneratedQuestion.competency_id.is_not(None),
-            )
-            .group_by(GeneratedQuestion.competency_id)
-            .having(func.count(GeneratedQuestion.id) >= MIN_ITEMS)
-            .order_by(func.random())
-        )
-        competency_id = fallback
-
-    if competency_id is None:
-        # Everything here exists to produce competency evidence. An attempt with
-        # no competency runs, scores, and silently records nothing — worse than
-        # refusing, because the officer thinks they were assessed.
-        raise QuizError(
-            "No competency could be selected for this quiz. Either every gap "
-            "already has enough approved questions, or the approved questions "
-            "are not linked to a competency."
-        )
-
-    pool = available_questions(db, competency_id=competency_id)
-    if len(pool) < MIN_ITEMS:
-        raise QuizError(
-            "Not enough approved questions yet for that competency. "
-            "An expert needs to review more of the generated items first."
-        )
-
-    # Prefer items nobody has attempted much: it spreads psychometric coverage
-    # instead of endlessly re-measuring the same handful.
-    pool.sort(key=lambda q: (q.times_attempted, random.random()))
-    chosen = pool[: min(item_count, len(pool))]
-    random.shuffle(chosen)
-
-    attempt = QuizAttempt(
-        user_id=user.id,
-        competency_id=competency_id,
-        status=AttemptStatus.IN_PROGRESS,
-        item_count=len(chosen),
-        mean_difficulty=round(
-            sum(question_difficulty(q) for q in chosen) / len(chosen), 2
-        ),
-    )
-    db.add(attempt)
-    db.flush()
-
-    for index, question in enumerate(chosen):
-        db.add(ItemResponse(
-            attempt_id=attempt.id, question_id=question.id, sequence=index
-        ))
-
-    db.flush()
-    return attempt
-
-
-def submit_attempt(
-    db: Session, *, attempt: QuizAttempt, answers: dict[int, int]
-) -> QuizResult:
-    """Mark the attempt, write evidence, and update item statistics.
-
-    `answers` maps question id to the selected option index. Unanswered items
-    count as incorrect — leaving one blank is a result, not an absence.
-    """
-    if attempt.status != AttemptStatus.IN_PROGRESS:
-        raise QuizError("This attempt has already been submitted")
-
-    now = datetime.now(timezone.utc)
-    correct = 0
-    difficulties: list[float] = []
-
-    for response in attempt.responses:
-        question = response.question
-        if question is None:
-            continue
-        selected = answers.get(question.id)
-        response.selected_index = selected
-        response.is_correct = selected is not None and selected == question.correct_index
-        response.answered_at = now
-        if response.is_correct:
-            correct += 1
-
-        # Item statistics accumulate on the question itself.
-        question.times_attempted += 1
-        if response.is_correct:
-            question.times_correct += 1
-
-        difficulties.append(question_difficulty(question))
-
-    attempt.correct_count = correct
-    attempt.mean_difficulty = (
-        round(sum(difficulties) / len(difficulties), 2) if difficulties else NEUTRAL_DIFFICULTY
-    )
-    attempt.status = AttemptStatus.SUBMITTED
-    attempt.submitted_at = now
-
-    accuracy = correct / attempt.item_count if attempt.item_count else 0.0
-    level = 1.0 + 4.0 * accuracy
-    # Adjust for how hard the paper was.
-    level += (attempt.mean_difficulty - NEUTRAL_DIFFICULTY) * DIFFICULTY_WEIGHT
-    level = round(max(1.0, min(5.0, level)), 2)
-    attempt.derived_level = level
-
-    confidence = round(
-        min(1.0, CONFIDENCE_FLOOR + CONFIDENCE_PER_ITEM * attempt.item_count), 2
-    )
-
-    db.flush()
-
-    if attempt.competency_id is not None:
-        record_evidence(
-            db,
-            user_id=attempt.user_id,
-            competency_id=attempt.competency_id,
-            level_estimate=level,
-            source=EvidenceSource.QUIZ,
-            confidence=confidence,
-            source_ref=f"quiz_attempt:{attempt.id}",
-            note=f"{correct} of {attempt.item_count} correct",
-        )
-
-    db.add(AuditLog(
-        actor_user_id=attempt.user_id,
-        action="quiz.submitted",
-        entity_type="quiz_attempt",
-        entity_id=str(attempt.id),
-        meta={
-            "competency_id": attempt.competency_id,
-            "correct": correct,
-            "items": attempt.item_count,
-            "derived_level": level,
-            "confidence": confidence,
-        },
-    ))
-    db.flush()
-
-    return QuizResult(
-        attempt=attempt, derived_level=level, confidence=confidence,
-        correct=correct, total=attempt.item_count,
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -380,6 +199,22 @@ def attempt_history(db: Session, *, user: User, limit: int = 20) -> list[dict]:
             "accuracy": round(100 * a.accuracy, 1),
             "derived_level": a.derived_level,
             "submitted_at": a.submitted_at,
+            "adaptive": a.is_adaptive,
+            "theta": a.theta,
+            "theta_se": a.theta_se,
+            # The interval, so two sittings can be compared honestly rather than
+            # by their point estimates. L3.1 +/- 0.7 and L3.4 +/- 0.7 are not a
+            # measured improvement, and a history table that shows only the
+            # points invites reading them as one.
+            "level_low": (
+                round(irt.theta_to_level(a.theta - 1.96 * a.theta_se), 2)
+                if a.theta is not None and a.theta_se is not None else None
+            ),
+            "level_high": (
+                round(irt.theta_to_level(a.theta + 1.96 * a.theta_se), 2)
+                if a.theta is not None and a.theta_se is not None else None
+            ),
+            "stop_reason": a.stop_reason,
         }
         for a in rows
     ]
@@ -398,8 +233,19 @@ def catalogue_item_health(db: Session) -> dict:
             GeneratedQuestion.times_attempted >= MIN_ATTEMPTS_FOR_STATS,
         )
     ) or 0
+    calibrated = db.scalar(
+        select(func.count(GeneratedQuestion.id)).where(
+            GeneratedQuestion.status == QuestionStatus.APPROVED,
+            GeneratedQuestion.irt_calibrated_at.is_not(None),
+        )
+    ) or 0
     return {
         "approved_items": total,
         "with_statistics": measured,
         "min_attempts": MIN_ATTEMPTS_FOR_STATS,
+        # Separate from `with_statistics` on purpose: an item can have a solid
+        # p-value and still not have enough responses for its difficulty to be
+        # estimated on the ability scale.
+        "irt_calibrated": calibrated,
+        "min_responses_to_calibrate": irt.MIN_RESPONSES_TO_CALIBRATE,
     }

@@ -12,6 +12,7 @@ const NAV_KEYS: Record<string, MessageKey> = {
   "/promotion": "nav.promotion",
   "/team": "nav.team",
   "/review": "nav.review",
+  "/officers": "nav.officers",
   "/admin": "nav.workforce",
   "/acbp": "nav.capacityPlan",
   "/quiz": "nav.quiz",
