@@ -33,7 +33,7 @@ export function TricolourBand() {
   );
 }
 
-/** The thin top strip: ministry, prototype notice, language, skip link. */
+/** The thin top strip: ministry name and language. */
 export function MinistryStrip() {
   const { locale, setLocale, t } = useI18n();
   return (
@@ -45,10 +45,6 @@ export function MinistryStrip() {
           <span>Ministry of Statistics and Programme Implementation</span>
         </span>
         <div className="flex shrink-0 items-center gap-3">
-          <a href="#main" className="hidden text-white/85 underline-offset-2 hover:underline sm:inline">
-            {t("nav.skipToContent")}
-          </a>
-          <span className="hidden text-white/60 sm:inline">|</span>
           <label htmlFor="portal-locale" className="sr-only">
             {t("nav.language")}
           </label>
@@ -67,6 +63,17 @@ export function MinistryStrip() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Jumps keyboard users past the header to the page content — WCAG 2.4.1
+ *  Bypass Blocks. Off-screen until focused, and the first thing Tab reaches. */
+export function SkipLink() {
+  const { t } = useI18n();
+  return (
+    <a href="#main" className="skip-link">
+      {t("nav.skipToContent")}
+    </a>
   );
 }
 
@@ -252,6 +259,7 @@ export function Icon({
 export function PublicShell({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col">
+      <SkipLink />
       <header>
         <MinistryStrip />
         <BrandBar
