@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Arial, Helvetica, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">SANKHYA system architecture</title>
+  <desc id="d">Officers, supervisors, subject experts and administrators use a React portal that calls a FastAPI service. Assessments, interviews, uploaded material and supervisor ratings append to an append-only evidence record in PostgreSQL. Competency levels, gaps and readiness are derived from that record, a recommender ranks iGOT Karmayogi courses against the gaps, and completed courses feed back as new evidence. Government systems are reached through pluggable adapters: Bhashini for Indian-language speech and translation, iGOT Karmayogi on Sunbird for the course catalogue, Parichay for single sign-on and API Setu or DigiLocker for certificate verification.</desc>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#374151"/>
+    </marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1B7F3B"/>
+    </marker>
+    <style>
+      .h{font-size:17px;font-weight:700;fill:#111827}
+      .s{font-size:13px;fill:#1f2937}
+      .m{font-size:12px;fill:#4b5563}
+      .lbl{font-size:12px;fill:#374151}
+      .zone{font-size:14px;font-weight:700;fill:#374151;letter-spacing:.4px}
+      .ln{stroke:#374151;stroke-width:2;fill:none;marker-end:url(#ar)}
+      .bus{stroke:#9ca3af;stroke-width:2;fill:none}
+      .lng{stroke:#1B7F3B;stroke-width:2.5;fill:none;marker-end:url(#arg);stroke-dasharray:7 5}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#ffffff"/>
+
+  <!-- zones -->
+  <rect x="20" y="70" width="240" height="800" rx="10" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="140" y="96" text-anchor="middle" class="zone">USERS</text>
+  <rect x="280" y="70" width="270" height="800" rx="10" fill="#eef4fb" stroke="#dbe5f1"/>
+  <text x="415" y="96" text-anchor="middle" class="zone">PORTAL (BROWSER)</text>
+  <rect x="570" y="70" width="700" height="800" rx="10" fill="#f6f7fb" stroke="#e5e7eb"/>
+  <text x="920" y="96" text-anchor="middle" class="zone">API AND CORE SERVICES (FastAPI, on government infrastructure)</text>
+  <rect x="1290" y="70" width="290" height="800" rx="10" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="1435" y="96" text-anchor="middle" class="zone">DATA, MODELS, INTEGRATIONS</text>
+
+  <!-- users -->
+  <g>
+    <rect x="45" y="130" width="190" height="72" rx="8" fill="#fde7df" stroke="#c2410c"/>
+    <text x="140" y="158" text-anchor="middle" class="h">Officer</text>
+    <text x="140" y="180" text-anchor="middle" class="s">assessments, interview, path</text>
+    <rect x="45" y="222" width="190" height="72" rx="8" fill="#fde7df" stroke="#c2410c"/>
+    <text x="140" y="250" text-anchor="middle" class="h">Supervisor</text>
+    <text x="140" y="272" text-anchor="middle" class="s">team readiness, ratings</text>
+    <rect x="45" y="314" width="190" height="72" rx="8" fill="#fde7df" stroke="#c2410c"/>
+    <text x="140" y="342" text-anchor="middle" class="h">Subject expert</text>
+    <text x="140" y="364" text-anchor="middle" class="s">approves generated items</text>
+    <rect x="45" y="406" width="190" height="72" rx="8" fill="#fde7df" stroke="#c2410c"/>
+    <text x="140" y="434" text-anchor="middle" class="h">Administrator</text>
+    <text x="140" y="456" text-anchor="middle" class="s">workforce view, ACBP, roles</text>
+  </g>
+
+  <!-- portal -->
+  <g>
+    <rect x="300" y="130" width="230" height="150" rx="8" fill="#dbeafe" stroke="#1d4ed8"/>
+    <text x="415" y="158" text-anchor="middle" class="h">React 18 portal</text>
+    <text x="415" y="182" text-anchor="middle" class="s">Vite, Tailwind, React Router</text>
+    <text x="415" y="204" text-anchor="middle" class="s">English and Hindi today</text>
+    <text x="415" y="226" text-anchor="middle" class="s">WCAG 2.1 AA (GIGW 3.0)</text>
+    <text x="415" y="248" text-anchor="middle" class="s">Dashboard, Assessment, Interview,</text>
+    <text x="415" y="268" text-anchor="middle" class="s">Learning, Team, Review, Workforce</text>
+
+    <rect x="300" y="300" width="230" height="96" rx="8" fill="#dbeafe" stroke="#1d4ed8"/>
+    <text x="415" y="328" text-anchor="middle" class="h">Live speech panel</text>
+    <text x="415" y="350" text-anchor="middle" class="s">Vosk in the browser: filler and</text>
+    <text x="415" y="370" text-anchor="middle" class="s">pace feedback, no audio streamed</text>
+
+    <rect x="300" y="416" width="230" height="72" rx="8" fill="#dbeafe" stroke="#1d4ed8"/>
+    <text x="415" y="444" text-anchor="middle" class="h">Sign-in</text>
+    <text x="415" y="466" text-anchor="middle" class="s">password, email OTP, TOTP, Google</text>
+  </g>
+
+  <!-- api gateway -->
+  <g>
+    <rect x="590" y="130" width="660" height="70" rx="8" fill="#1F3A5F"/>
+    <text x="920" y="158" text-anchor="middle" class="h" style="fill:#fff">API gateway: JWT sessions, role-based access, rate limits, audit log</text>
+    <text x="920" y="182" text-anchor="middle" class="s" style="fill:#dbe5f1">Every privileged read of a named officer is logged. Registration restricted to gov.in and nic.in.</text>
+  </g>
+
+  <!-- evidence sources row -->
+  <g>
+    <rect x="590" y="225" width="150" height="90" rx="8" fill="#fce7f3" stroke="#be185d"/>
+    <text x="665" y="252" text-anchor="middle" class="h">Adaptive test</text>
+    <text x="665" y="274" text-anchor="middle" class="s">3PL IRT, 5 to 12 items</text>
+    <text x="665" y="294" text-anchor="middle" class="s">stops when precise</text>
+
+    <rect x="760" y="225" width="150" height="90" rx="8" fill="#fce7f3" stroke="#be185d"/>
+    <text x="835" y="252" text-anchor="middle" class="h">AI interview</text>
+    <text x="835" y="274" text-anchor="middle" class="s">speech pipeline and</text>
+    <text x="835" y="294" text-anchor="middle" class="s">rubric judge, 5 axes</text>
+
+    <rect x="930" y="225" width="150" height="90" rx="8" fill="#fce7f3" stroke="#be185d"/>
+    <text x="1005" y="252" text-anchor="middle" class="h">Material upload</text>
+    <text x="1005" y="274" text-anchor="middle" class="s">PDF, deck, recording</text>
+    <text x="1005" y="294" text-anchor="middle" class="s">to cited MCQs</text>
+
+    <rect x="1100" y="225" width="150" height="90" rx="8" fill="#fce7f3" stroke="#be185d"/>
+    <text x="1175" y="250" text-anchor="middle" class="h">Role simulation</text>
+    <text x="1175" y="270" text-anchor="middle" class="s">situational task, 6 axes</text>
+    <text x="1175" y="288" text-anchor="middle" class="s">supervisor rating,</text>
+    <text x="1175" y="304" text-anchor="middle" class="s">certification, history</text>
+  </g>
+
+  <!-- SME queue side node -->
+  <rect x="930" y="335" width="150" height="54" rx="8" fill="#ede9fe" stroke="#6d28d9"/>
+  <text x="1005" y="357" text-anchor="middle" class="h" style="font-size:14px">Citation check</text>
+  <text x="1005" y="377" text-anchor="middle" class="s">then SME review queue</text>
+
+  <!-- evidence spine -->
+  <g>
+    <rect x="590" y="415" width="660" height="80" rx="8" fill="#1B7F3B"/>
+    <text x="920" y="445" text-anchor="middle" class="h" style="fill:#fff">Evidence record (append-only): proficiency_evidence</text>
+    <text x="920" y="470" text-anchor="middle" class="s" style="fill:#e7f4ea;font-size:12.5px">weight = source reliability x confidence x recency decay (365-day half-life). No update, no delete, no direct score write</text>
+  </g>
+
+  <!-- derived layer -->
+  <g>
+    <rect x="590" y="530" width="200" height="96" rx="8" fill="#ccfbf1" stroke="#0f766e"/>
+    <text x="690" y="557" text-anchor="middle" class="h">Competency profile</text>
+    <text x="690" y="579" text-anchor="middle" class="s">derived level L1 to L5 per</text>
+    <text x="690" y="599" text-anchor="middle" class="s">FRAC competency, with interval</text>
+
+    <rect x="820" y="530" width="200" height="96" rx="8" fill="#ccfbf1" stroke="#0f766e"/>
+    <text x="920" y="557" text-anchor="middle" class="h">Gap analysis</text>
+    <text x="920" y="579" text-anchor="middle" class="s">role held, target role,</text>
+    <text x="920" y="599" text-anchor="middle" class="s">self-rating divergence</text>
+
+    <rect x="1050" y="530" width="200" height="96" rx="8" fill="#ccfbf1" stroke="#0f766e"/>
+    <text x="1150" y="557" text-anchor="middle" class="h">Readiness and analytics</text>
+    <text x="1150" y="579" text-anchor="middle" class="s">promotion simulator, team view,</text>
+    <text x="1150" y="599" text-anchor="middle" class="s">course efficacy, ACBP draft</text>
+  </g>
+
+  <!-- recommender -->
+  <g>
+    <rect x="590" y="660" width="320" height="96" rx="8" fill="#fef3c7" stroke="#b45309"/>
+    <text x="750" y="687" text-anchor="middle" class="h">Recommender</text>
+    <text x="750" y="709" text-anchor="middle" class="s">relevance 0.40, level fit 0.25, urgency 0.20, peers 0.15</text>
+    <text x="750" y="729" text-anchor="middle" class="s">no level overlap: dropped, not ranked low</text>
+
+    <rect x="930" y="660" width="320" height="96" rx="8" fill="#fef3c7" stroke="#b45309"/>
+    <text x="1090" y="687" text-anchor="middle" class="h">iGOT learning path</text>
+    <text x="1090" y="709" text-anchor="middle" class="s">prerequisite-ordered courses until the</text>
+    <text x="1090" y="729" text-anchor="middle" class="s">required level is reached; reason stored</text>
+  </g>
+
+  <!-- feedback loop label -->
+  <rect x="590" y="790" width="660" height="52" rx="8" fill="#e7f4ea" stroke="#1B7F3B" stroke-dasharray="6 4"/>
+  <text x="920" y="812" text-anchor="middle" class="h" style="font-size:15px;fill:#1B7F3B">Feedback loop</text>
+  <text x="920" y="832" text-anchor="middle" class="s">A completed course is appended as new evidence; the level, the gap and the next recommendation are re-derived.</text>
+
+  <!-- right column: data and models -->
+  <g>
+    <rect x="1310" y="130" width="250" height="96" rx="8" fill="#e0e7ff" stroke="#3730a3"/>
+    <text x="1435" y="156" text-anchor="middle" class="h">PostgreSQL 16 + pgvector</text>
+    <text x="1435" y="178" text-anchor="middle" class="s">evidence, profiles, item bank,</text>
+    <text x="1435" y="198" text-anchor="middle" class="s">course embeddings, audit log</text>
+    <text x="1435" y="217" text-anchor="middle" class="m">Alembic migrations on boot</text>
+
+    <rect x="1310" y="244" width="250" height="62" rx="8" fill="#e0e7ff" stroke="#3730a3"/>
+    <text x="1435" y="270" text-anchor="middle" class="h">Redis 7</text>
+    <text x="1435" y="292" text-anchor="middle" class="s">one-time codes, rate limits</text>
+
+    <rect x="1310" y="324" width="250" height="104" rx="8" fill="#ede9fe" stroke="#6d28d9"/>
+    <text x="1435" y="350" text-anchor="middle" class="h">Speech worker</text>
+    <text x="1435" y="372" text-anchor="middle" class="s">ffmpeg, Whisper, Vosk, Silero,</text>
+    <text x="1435" y="392" text-anchor="middle" class="s">Praat; Bhashini ASR in production</text>
+    <text x="1435" y="414" text-anchor="middle" class="m">audio not retained after analysis</text>
+
+    <rect x="1310" y="446" width="250" height="84" rx="8" fill="#ede9fe" stroke="#6d28d9"/>
+    <text x="1435" y="472" text-anchor="middle" class="h">LLM judge and generator</text>
+    <text x="1435" y="494" text-anchor="middle" class="s">Ollama (Llama 3.x) on premises,</text>
+    <text x="1435" y="514" text-anchor="middle" class="s">Gemini as an optional switch</text>
+  </g>
+
+  <!-- right column: government integrations -->
+  <g>
+    <rect x="1300" y="548" width="270" height="296" rx="10" fill="#f0fdf4" stroke="#15803d" stroke-dasharray="6 4"/>
+    <text x="1435" y="572" text-anchor="middle" class="zone" style="fill:#15803d">GOVERNMENT INTEGRATIONS</text>
+    <text x="1435" y="590" text-anchor="middle" class="m">pluggable adapters, one per service</text>
+
+    <rect x="1316" y="602" width="238" height="56" rx="8" fill="#dcfce7" stroke="#15803d"/>
+    <text x="1435" y="624" text-anchor="middle" class="h" style="font-size:15px">Bhashini (MeitY)</text>
+    <text x="1435" y="644" text-anchor="middle" class="s">speech, translation, text to speech</text>
+
+    <rect x="1316" y="666" width="238" height="56" rx="8" fill="#dcfce7" stroke="#15803d"/>
+    <text x="1435" y="688" text-anchor="middle" class="h" style="font-size:15px">iGOT Karmayogi (Sunbird)</text>
+    <text x="1435" y="708" text-anchor="middle" class="s">catalogue, enrolment, completion</text>
+
+    <rect x="1316" y="730" width="238" height="52" rx="8" fill="#dcfce7" stroke="#15803d"/>
+    <text x="1435" y="751" text-anchor="middle" class="h" style="font-size:15px">Parichay SSO (NIC)</text>
+    <text x="1435" y="770" text-anchor="middle" class="s">single sign-on for officials</text>
+
+    <rect x="1316" y="790" width="238" height="52" rx="8" fill="#dcfce7" stroke="#15803d"/>
+    <text x="1435" y="811" text-anchor="middle" class="h" style="font-size:15px">API Setu, DigiLocker</text>
+    <text x="1435" y="830" text-anchor="middle" class="s">verify claimed certificates</text>
+  </g>
+
+  <!-- arrows: users -> portal -->
+  <path d="M235 166 H300" class="ln"/>
+  <path d="M235 258 H300" class="ln"/>
+  <path d="M235 350 H300" class="ln"/>
+  <path d="M235 442 H300" class="ln"/>
+  <!-- portal -> api -->
+  <path d="M530 205 H590 V165" class="ln"/>
+  <path d="M530 452 H560 V165 H590" class="ln"/>
+  <text x="556" y="330" class="lbl" transform="rotate(-90 556 330)">/api, JSON over HTTPS</text>
+  <!-- api -> sources -->
+  <path d="M665 200 V225" class="ln"/>
+  <path d="M835 200 V225" class="ln"/>
+  <path d="M1005 200 V225" class="ln"/>
+  <path d="M1175 200 V225" class="ln"/>
+  <!-- sources -> spine -->
+  <path d="M665 315 V415" class="ln"/>
+  <path d="M835 315 V415" class="ln"/>
+  <path d="M1005 315 V335" class="ln"/>
+  <path d="M1005 389 V415" class="ln"/>
+  <path d="M1175 315 V415" class="ln"/>
+  <!-- spine -> derived -->
+  <path d="M690 495 V530" class="ln"/>
+  <path d="M920 495 V530" class="ln"/>
+  <path d="M1150 495 V530" class="ln"/>
+  <!-- derived -> recommender -->
+  <path d="M690 626 V660" class="ln"/>
+  <path d="M920 626 V645 H750 V660" class="ln"/>
+  <path d="M910 708 H930" class="ln"/>
+  <!-- recommender -> path -> feedback -->
+  <path d="M1090 756 V790" class="lng"/>
+  <path d="M590 816 H575 V455 H590" class="lng"/>
+  <!-- api bus to the right column -->
+  <path d="M1272 178 V816" class="bus"/>
+  <path d="M1272 178 H1310" class="ln"/>
+  <path d="M1272 275 H1310" class="ln"/>
+  <path d="M1272 376 H1310" class="ln"/>
+  <path d="M1272 488 H1310" class="ln"/>
+  <path d="M1272 630 H1316" class="ln"/>
+  <path d="M1272 694 H1316" class="ln"/>
+  <path d="M1272 756 H1316" class="ln"/>
+  <path d="M1272 816 H1316" class="ln"/>
+</svg>
