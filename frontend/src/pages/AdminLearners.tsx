@@ -325,11 +325,12 @@ export function AdminLearners() {
 
       <Card className="mb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="min-w-[220px] flex-1">
+          <label htmlFor="roster-search" className="min-w-[220px] flex-1">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
               Search
             </span>
             <input
+              id="roster-search"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -341,11 +342,12 @@ export function AdminLearners() {
           </label>
 
           {filters && filters.divisions.length > 1 && (
-            <label>
+            <label htmlFor="roster-division">
               <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
                 Division
               </span>
               <select
+                id="roster-division"
                 value={divisionId}
                 onChange={(e) => {
                   setDivisionId(e.target.value);
@@ -364,11 +366,12 @@ export function AdminLearners() {
           )}
 
           {filters && (
-            <label>
+            <label htmlFor="roster-frac-role">
               <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
                 FRAC role
               </span>
               <select
+                id="roster-frac-role"
                 value={roleId}
                 onChange={(e) => {
                   setRoleId(e.target.value);
@@ -386,11 +389,12 @@ export function AdminLearners() {
             </label>
           )}
 
-          <label>
+          <label htmlFor="roster-sort">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
               Sort
             </span>
             <select
+              id="roster-sort"
               value={sort}
               onChange={(e) => {
                 setSort(e.target.value);
@@ -405,8 +409,12 @@ export function AdminLearners() {
             </select>
           </label>
 
-          <label className="flex cursor-pointer items-center gap-2 pb-2 text-[13px] text-ink-2">
+          <label
+            htmlFor="roster-critical-only"
+            className="flex cursor-pointer items-center gap-2 pb-2 text-[13px] text-ink-2"
+          >
             <input
+              id="roster-critical-only"
               type="checkbox"
               checked={criticalOnly}
               onChange={(e) => {
@@ -435,19 +443,24 @@ export function AdminLearners() {
                 right-hand columns clip with nothing to say so. Fixed widths make
                 truncation actually truncate. */}
             <table className="w-full table-fixed border-collapse text-[13px]">
+              <caption className="sr-only">
+                Officer roster, lowest readiness first: division, FRAC role,
+                readiness, competencies measured, critical gaps and widest gap
+                for each officer matching the filters above
+              </caption>
               <thead>
                 <tr className="border-b border-rule text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
-                  <th className="w-[23%] pb-2 font-semibold">Officer</th>
-                  <th className="w-[16%] pb-2 font-semibold">Division</th>
-                  <th className="w-[14%] pb-2 font-semibold">FRAC role</th>
-                  <th className="w-[10%] pb-2 pr-3 text-right font-semibold">Readiness</th>
-                  <th className="w-[9%] pb-2 pr-3 text-right font-semibold">Measured</th>
-                  <th className="w-[8%] pb-2 pr-3 text-right font-semibold">Critical</th>
-                  <th className="pb-2 font-semibold">Widest gap</th>
-                  <th className="hidden pb-2 text-right font-semibold xl:table-cell">
+                  <th scope="col" className="w-[23%] pb-2 font-semibold">Officer</th>
+                  <th scope="col" className="w-[16%] pb-2 font-semibold">Division</th>
+                  <th scope="col" className="w-[14%] pb-2 font-semibold">FRAC role</th>
+                  <th scope="col" className="w-[10%] pb-2 pr-3 text-right font-semibold">Readiness</th>
+                  <th scope="col" className="w-[9%] pb-2 pr-3 text-right font-semibold">Measured</th>
+                  <th scope="col" className="w-[8%] pb-2 pr-3 text-right font-semibold">Critical</th>
+                  <th scope="col" className="pb-2 font-semibold">Widest gap</th>
+                  <th scope="col" className="hidden pb-2 text-right font-semibold xl:table-cell">
                     Evidence
                   </th>
-                  <th className="hidden pb-2 text-right font-semibold xl:table-cell">
+                  <th scope="col" className="hidden pb-2 text-right font-semibold xl:table-cell">
                     Last seen
                   </th>
                 </tr>
