@@ -18,6 +18,7 @@ const NAV_KEYS: Record<string, MessageKey> = {
   "/admin": "nav.workforce",
   "/acbp": "nav.capacityPlan",
   "/quiz": "nav.quiz",
+  "/simulation": "nav.simulation",
   "/interview": "nav.interview",
   "/settings": "nav.settings",
 };
@@ -32,6 +33,7 @@ const NAV_ICONS: Record<string, string> = {
   "/admin": "workforce",
   "/acbp": "capacityPlan",
   "/quiz": "quiz",
+  "/simulation": "simulation",
   "/interview": "interview",
   "/settings": "settings",
 };
@@ -40,7 +42,7 @@ const NAV_ICONS: Record<string, string> = {
    signed-in role cannot open is simply absent, and an empty group is hidden. */
 const NAV_GROUPS: { label: string; paths: string[] }[] = [
   { label: "My workspace", paths: ["/dashboard", "/journey", "/learning", "/promotion"] },
-  { label: "Assessments", paths: ["/quiz", "/interview"] },
+  { label: "Assessments", paths: ["/quiz", "/simulation", "/interview"] },
   { label: "Administration", paths: ["/team", "/review", "/admin", "/acbp"] },
   { label: "Account", paths: ["/settings"] },
 ];

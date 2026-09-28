@@ -351,6 +351,74 @@ def main() -> int:
           isinstance(iv.get("worker_online"), bool),
           f"worker_online={iv.get('worker_online')}")
 
+    section("Role simulation")
+    status, sim = call("POST", "/simulations", {}, token=token)
+    check("A situation is served", status == 200, sim.get("title", ""))
+
+    if status == 200:
+        check("It carries the constraint that makes it a judgement",
+              bool(sim.get("constraint")),
+              "without one, a situational exercise is a recall question")
+        # The rubric is the answer key. Serving it with the situation would make
+        # this a reading-comprehension test.
+        check("The open situation carries no rubric",
+              "expected_points" not in sim and "common_traps" not in sim)
+
+        resumed_status, resumed = call("POST", "/simulations", {}, token=token)
+        check("Reopening resumes rather than burning a scenario",
+              resumed_status == 200 and resumed.get("attempt_id") == sim["attempt_id"])
+
+        attempt_id = sim["attempt_id"]
+        short_status, short_body = call(
+            "POST", f"/simulations/{attempt_id}/submit",
+            {"response": "I would look into it."}, token=token,
+        )
+        check("A response too short to be a decision is refused, not scored",
+              short_status == 422,
+              "a 1.0 from a stray keypress would stay in an append-only record")
+
+        answer = (
+            "I would first establish what is actually driving the problem before "
+            "changing anything, because acting on the wrong cause wastes the one "
+            "round of effort we have. I would then decide between the options "
+            "available under the constraint, and say publicly which I chose and "
+            "why, so that users can judge the figures for themselves rather than "
+            "being told to trust them. Anything I could not resolve I would "
+            "document in the release note instead of leaving it for someone to "
+            "discover later. Finally I would fix the process that produced this "
+            "so the same situation does not recur next cycle."
+        )
+        status, scored = call(
+            "POST", f"/simulations/{attempt_id}/submit", {"response": answer}, token=token
+        )
+        check("The response is scored on five axes", status == 200 and all(
+            isinstance(scored.get(axis), (int, float))
+            for axis in ("knowledge", "reasoning", "prioritisation",
+                         "communication", "decision_making")))
+        check("Only knowledge and reasoning become the level",
+              status == 200 and scored.get("derived_level") is not None
+              and abs(scored["derived_level"]
+                      - round((scored["knowledge"] + scored["reasoning"]) / 2, 2)) < 0.01,
+              "an officer must not be promoted for writing well")
+        check("The rubric is released once the response is in",
+              status == 200 and len(scored.get("expected_points") or []) > 0)
+        check("The scorer names itself",
+              status == 200 and bool(scored.get("model_name")),
+              "a keyword score must never be read as a judged one")
+        check("Resubmitting the same attempt is refused",
+              call("POST", f"/simulations/{attempt_id}/submit",
+                   {"response": answer}, token=token)[0] == 409)
+        check("Another officer cannot read the attempt",
+              call("GET", f"/simulations/{attempt_id}", token=sup_token)[0] == 404,
+              "same answer for 'not yours' as for 'does not exist'")
+
+        status, ev = call("GET", "/evidence/me", token=token)
+        check("It appended simulation evidence, at the heaviest weight in the system",
+              status == 200 and any(
+                  e.get("source") == "simulation"
+                  and str(e.get("source_ref") or "").startswith("simulation_attempt:")
+                  for e in (ev if isinstance(ev, list) else ev.get("evidence", []))))
+
     section("Recommendation engine")
     status, courses = call("GET", "/courses", token=token)
     check("Catalogue imported", status == 200 and len(courses) >= 15,

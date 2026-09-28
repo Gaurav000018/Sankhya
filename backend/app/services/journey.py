@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.models_interview import Interview, InterviewStatus
 from app.models_quiz import AttemptStatus, QuizAttempt
+from app.models_simulation import SimulationAttempt, SimulationStatus
 from app.services.competency import analyse_gaps
 from app.services.recommender import recommend
 from app.services.simulator import forecast
@@ -89,6 +90,11 @@ class RoadmapStep:
 class Journey:
     assessment: list[Signal] = field(default_factory=list)
     interview: list[Signal] = field(default_factory=list)
+    # Kept as its own list rather than folded into `assessment`. The three
+    # methods ask different questions — what you recognise, what you can
+    # explain, what you would do — and averaging them would erase exactly the
+    # disagreement this page exists to surface.
+    simulation: list[Signal] = field(default_factory=list)
     divergences: list[Divergence] = field(default_factory=list)
     roadmap: list[RoadmapStep] = field(default_factory=list)
     narrative: list[str] = field(default_factory=list)
@@ -181,10 +187,12 @@ def build_journey(
         db, user, [EvidenceSource.QUIZ, EvidenceSource.DIAGNOSTIC], since
     )
     interview_levels = _levels_by_source(db, user, [EvidenceSource.INTERVIEW], since)
+    simulation_levels = _levels_by_source(db, user, [EvidenceSource.SIMULATION], since)
 
     journey = Journey()
     journey.assessment = _signals(db, assessment_levels, competencies)
     journey.interview = _signals(db, interview_levels, competencies)
+    journey.simulation = _signals(db, simulation_levels, competencies)
 
     # --- where the two methods disagree ------------------------------------ #
     for cid, (a_level, _) in assessment_levels.items():
@@ -219,7 +227,7 @@ def build_journey(
     open_gaps = [g for g in gaps if g.is_gap]
     open_gaps.sort(key=lambda g: (g.criticality != "critical", -g.gap))
 
-    measured = set(assessment_levels) | set(interview_levels)
+    measured = set(assessment_levels) | set(interview_levels) | set(simulation_levels)
     journey.unmeasured = [
         competencies[g.competency_id].name
         for g in open_gaps
@@ -249,6 +257,8 @@ def build_journey(
             seen_in.append("the assessment")
         if gap.competency_id in interview_levels:
             seen_in.append("the interview")
+        if gap.competency_id in simulation_levels:
+            seen_in.append("the simulation")
 
         if seen_in:
             why = (
@@ -318,6 +328,12 @@ def _narrative(db: Session, user: User, journey: Journey, open_gap_count: int) -
             Interview.user_id == user.id, Interview.status == InterviewStatus.COMPLETED
         )
     ).all()
+    simulations = db.scalars(
+        select(SimulationAttempt).where(
+            SimulationAttempt.user_id == user.id,
+            SimulationAttempt.status == SimulationStatus.SCORED,
+        )
+    ).all()
 
     if journey.needs_role:
         lines.append(
@@ -331,11 +347,13 @@ def _narrative(db: Session, user: User, journey: Journey, open_gap_count: int) -
             "real and is kept; it simply is not yet aimed at a particular gap."
         )
 
+    readings = len(journey.assessment) + len(journey.interview) + len(journey.simulation)
     lines.append(
         f"You have completed {len(attempts)} assessment"
-        f"{'' if len(attempts) == 1 else 's'} and {len(interviews)} interview"
-        f"{'' if len(interviews) == 1 else 's'}. "
-        f"Everything below is derived from the {len(journey.assessment) + len(journey.interview)} "
+        f"{'' if len(attempts) == 1 else 's'}, {len(interviews)} interview"
+        f"{'' if len(interviews) == 1 else 's'} and {len(simulations)} role simulation"
+        f"{'' if len(simulations) == 1 else 's'}. "
+        f"Everything below is derived from the {readings} "
         "competency readings those produced — no part of it is self-reported."
     )
 
@@ -355,6 +373,16 @@ def _narrative(db: Session, user: User, journey: Journey, open_gap_count: int) -
             f"The interview scored {weakest.competency_name} lowest at L{weakest.level}. "
             "Interview evidence carries the Knowledge axis only — how an answer was "
             "delivered never becomes a competency level."
+        )
+
+    if journey.simulation:
+        weakest = journey.simulation[0]
+        lines.append(
+            f"In the role simulation you came out lowest on {weakest.competency_name} "
+            f"at L{weakest.level}. Simulation evidence is weighted the most heavily of "
+            "any source on this platform, because it is the only one that watches you "
+            "make a decision rather than describe one — the knowledge and reasoning "
+            "behind the decision become the level, and how you wrote it up does not."
         )
 
     if journey.divergences:
@@ -386,9 +414,9 @@ def _narrative(db: Session, user: User, journey: Journey, open_gap_count: int) -
         lines.append(
             "Not yet measured: "
             + ", ".join(journey.unmeasured)
-            + ". These are required for the role but have no assessment or interview "
-            "evidence, so their gap is assumed from the role requirement rather than "
-            "observed."
+            + ". These are required for the role but have no assessment, interview "
+            "or simulation evidence, so their gap is assumed from the role "
+            "requirement rather than observed."
         )
 
     return lines

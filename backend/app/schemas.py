@@ -584,3 +584,68 @@ class NextQuestionOut(BaseModel):
     is_generated: bool = False
     asked: int = 0
     max_questions: int = 0
+
+
+# --------------------------------------------------------------------------- #
+# Role-based competency simulation
+# --------------------------------------------------------------------------- #
+
+
+class SimulationSubmitIn(BaseModel):
+    response: str = Field(min_length=1, max_length=20000)
+
+
+class SimulationAttemptOut(BaseModel):
+    """An attempt in progress.
+
+    Deliberately without `expected_points` and `common_traps`: the rubric is the
+    answer key, and serving it beside the situation would turn a judgement
+    exercise into reading comprehension.
+    """
+
+    attempt_id: int
+    status: str
+    scenario_code: str
+    title: str
+    competency_name: str | None = None
+    situation: str
+    task: str
+    constraint: str | None = None
+    minutes: int
+    target_level: float
+    response: str | None = None
+
+
+class SimulationResultOut(BaseModel):
+    attempt_id: int
+    status: str
+    scenario_code: str
+    title: str
+    competency_name: str | None = None
+    situation: str
+    task: str
+    constraint: str | None = None
+    response: str | None = None
+
+    # The two axes that became competency evidence...
+    knowledge: float | None = None
+    reasoning: float | None = None
+    # ...and the three reported to the officer as feedback only.
+    prioritisation: float | None = None
+    communication: float | None = None
+    decision_making: float | None = None
+
+    derived_level: float | None = None
+    confidence: float | None = None
+
+    covered_points: list[str] = Field(default_factory=list)
+    missed_points: list[str] = Field(default_factory=list)
+    traps_hit: list[str] = Field(default_factory=list)
+    # The full rubric, released only now that the response is in.
+    expected_points: list[str] = Field(default_factory=list)
+
+    feedback: str | None = None
+    # Surfaced so a stub-scored attempt is never read as a judged one.
+    model_name: str | None = None
+    degraded: bool = False
+    submitted_at: datetime | None = None

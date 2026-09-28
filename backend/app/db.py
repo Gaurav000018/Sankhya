@@ -42,6 +42,7 @@ def init_db() -> None:
         models_interview,
         models_learning,
         models_quiz,
+        models_simulation,
     )
     from app.core import tokens  # noqa: F401  (email_tokens)
 
@@ -64,6 +65,7 @@ def reset_schema() -> None:
         models_interview,
         models_learning,
         models_quiz,
+        models_simulation,
     )
     from app.core import tokens  # noqa: F401  (email_tokens)
 

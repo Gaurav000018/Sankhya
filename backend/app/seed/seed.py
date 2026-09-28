@@ -40,6 +40,7 @@ from app.models_learning import Course, CourseCompletion
 from app.seed.questions import seed_questions
 from app.seed.cited_quiz_bank import seed_cited_quiz_bank
 from app.seed.quiz_bank import seed_quiz_bank
+from app.seed.simulation_bank import seed_scenarios
 from app.services.competency import recompute_profile
 from app.services.igot import sync_catalogue
 from app.services.recommender import embed_catalogue
@@ -482,6 +483,9 @@ def seed(total_officers: int = 200) -> None:
         # approved it, and at framework-build time no users exist yet.
         mcq_count = seed_quiz_bank(db, competencies)
 
+        print("Loading role simulation scenarios...")
+        scenario_count = seed_scenarios(db, competencies)
+
         print("Generating course completion history...")
         courses = list(db.scalars(select(Course)).all())
         completions = 0
@@ -523,6 +527,7 @@ def seed(total_officers: int = 200) -> None:
         print(f"  Interview bank    {question_count} questions + 1 calibration")
         print(f"  Assessment bank   {mcq_count} approved MCQs across 12 competencies")
         print(f"  Assessment bank   {quiz_item_count} cited items with source passages")
+        print(f"  Role simulations  {scenario_count} authored scenarios")
         print(f"  Course catalogue  {catalogue['total']} courses, {embedded} embedded")
         print(f"  Completions       {completions}")
         print(f"  Evidence rows     ~{evidence_total}")
