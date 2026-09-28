@@ -109,12 +109,27 @@ def select_scenario(db: Session, *, user: User) -> Scenario | None:
     return min(fresh, key=lambda s: s.target_level)
 
 
-def start_attempt(db: Session, *, user: User) -> SimulationAttempt | None:
+class NoScenarios(Exception):
+    """Raised when there is nothing to serve, with which of the two reasons.
+
+    "You have done them all" and "none have been loaded" are opposite facts
+    about an officer, and a deployment whose seed never ran would otherwise
+    congratulate them for finishing a library that is empty.
+    """
+
+    def __init__(self, library_empty: bool):
+        self.library_empty = library_empty
+        super().__init__("no scenario available")
+
+
+def start_attempt(db: Session, *, user: User) -> SimulationAttempt:
     """Open an attempt, resuming one already in progress.
 
     Resuming matters: the page mounts on every navigation, and without this each
     mount would strand a fresh attempt and quietly burn a scenario the officer
     never saw.
+
+    Raises `NoScenarios` when there is nothing to serve.
     """
     existing = db.scalar(
         select(SimulationAttempt)
@@ -129,7 +144,10 @@ def start_attempt(db: Session, *, user: User) -> SimulationAttempt | None:
 
     scenario = select_scenario(db, user=user)
     if scenario is None:
-        return None
+        library_empty = not db.scalar(
+            select(Scenario.id).where(Scenario.is_active.is_(True)).limit(1)
+        )
+        raise NoScenarios(library_empty=library_empty)
 
     attempt = SimulationAttempt(
         user_id=user.id,

@@ -94,13 +94,17 @@ def start_simulation(
     Resuming rather than starting afresh: the page mounts on every navigation,
     and a new attempt per mount would burn a scenario the officer never read.
     """
-    attempt = simulation_service.start_attempt(db, user=user)
-    if attempt is None:
+    try:
+        attempt = simulation_service.start_attempt(db, user=user)
+    except simulation_service.NoScenarios as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "You have worked through every situation currently in the library. "
-            "New ones are added as they are authored and reviewed.",
-        )
+            "No situations have been loaded on this deployment yet, so there is "
+            "nothing to attempt. An administrator seeds the scenario library."
+            if exc.library_empty
+            else "You have worked through every situation currently in the "
+            "library. New ones are added as they are authored and reviewed.",
+        ) from exc
     db.commit()
     db.refresh(attempt)
     return _attempt_out(attempt, attempt.scenario)
