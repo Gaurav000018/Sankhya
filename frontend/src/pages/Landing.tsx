@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth";
+import { DemoAccess } from "../components/DemoAccess";
 import { Faq } from "../components/landing/Faq";
 import { Icon, PublicShell } from "../components/portal";
 import { btnPrimary, btnSecondary } from "../components/ui";
@@ -65,6 +66,70 @@ const FIGURES: [string, string][] = [
   ["21", "catalogue courses"],
 ];
 
+const MATERIAL_STEPS: { title: string; body: string }[] = [
+  {
+    title: "Upload the source.",
+    body: "A circular, a manual, a training deck or a recorded lecture. PDF, Word, PowerPoint and audio are read directly.",
+  },
+  {
+    title: "Questions are generated with citations.",
+    body: "Each multiple-choice question carries the page and the exact sentence it was drawn from, plus an explanation and a reason for every wrong option.",
+  },
+  {
+    title: "Unverifiable questions are discarded.",
+    body: "If the quoted sentence cannot be found in the passage, the question is thrown away before any person sees it.",
+  },
+  {
+    title: "A subject expert approves or rejects.",
+    body: "Only approved questions ever reach an officer, and the reviewer sees the source passage next to the question.",
+  },
+  {
+    title: "Difficulty is re-estimated from real answers.",
+    body: "Once 25 officers have attempted an item, its difficulty is re-fitted from how they actually answered rather than from the author's guess.",
+  },
+];
+
+const REFERENCES: { name: string; body: string; href?: string }[] = [
+  {
+    name: "Mission Karmayogi and the FRAC framework",
+    body: "supplies the roles, activities and competencies every level on this portal is measured against, and the Annual Capacity Building Plan it must produce.",
+    href: "https://cbc.gov.in",
+  },
+  {
+    name: "iGOT Karmayogi",
+    body: "supplies the course catalogue and the competency taxonomy that recommendations are drawn from.",
+    href: "https://igotkarmayogi.gov.in",
+  },
+  {
+    name: "NSSTA",
+    body: "supplies the TPAC-recommended training programmes offered alongside iGOT courses.",
+    href: "https://nssta.gov.in",
+  },
+  {
+    name: "MoSPI",
+    body: "supplies the divisions, job roles and statistical products the competency vocabulary is written around.",
+    href: "https://www.mospi.gov.in",
+  },
+  {
+    name: "Bhashini, MeitY",
+    body: "supplies Indian-language speech recognition, translation and speech output, so an officer can be assessed in their own language.",
+    href: "https://bhashini.gov.in",
+  },
+  {
+    name: "Parichay, NIC",
+    body: "supplies the government's own single sign-on for officials, replacing the password login in a real deployment.",
+    href: "https://parichay.nic.in",
+  },
+  {
+    name: "GIGW 3.0 and WCAG 2.1 AA",
+    body: "set the accessibility rules this portal is checked against on every build.",
+  },
+  {
+    name: "Item response theory",
+    body: "supplies the measurement model. Lord (1980) and van der Linden and Glas (2010) on adaptive testing; the three-parameter model is used here because a four-option question can be guessed.",
+  },
+];
+
 const STEPS: { title: string; body: string }[] = [
   { title: "Sign in", body: "Use your official email with a password, one-time code or authenticator app." },
   { title: "Get assessed", body: "Take a quiz or an interview. Each result is added to your evidence record." },
@@ -112,8 +177,10 @@ export function Landing() {
         <ul className="mx-auto flex max-w-[1440px] overflow-x-auto px-2 text-[13.5px] text-white sm:px-4">
           {[
             ["Home", "#top"],
+            ["Live demonstration", "#demo"],
             ["Services", "#services"],
             ["How it works", "#how"],
+            ["Reference material", "#material"],
             ["Who can use it", "#roles"],
             ["FAQs", "#faq"],
           ].map(([label, href]) => (
@@ -148,7 +215,10 @@ export function Landing() {
                 </Link>
               ) : (
                 <>
-                  <Link to="/login" className={btnPrimary}>
+                  <a href="#demo" className={btnPrimary}>
+                    Open the live demonstration
+                  </a>
+                  <Link to="/login" className={btnSecondary}>
                     Officer login
                   </Link>
                   <Link to="/register" className={btnSecondary}>
@@ -188,6 +258,22 @@ export function Landing() {
           </aside>
         </section>
 
+        {/* ------------------------------------------- live demonstration -- */}
+        <section id="demo" aria-labelledby="demo-h" className="scroll-mt-4">
+          <h2 id="demo-h" className="border-b border-rule pb-2 text-[19px] font-semibold text-ink">
+            Live demonstration
+          </h2>
+          <p className="mt-3 max-w-[92ch] text-[14.5px] leading-relaxed text-ink-2">
+            Open the portal as any of the four roles, with no sign-up. Every account is already carrying a
+            complete record: assessments taken, an interview scored, evidence accumulated over twelve months,
+            gaps measured against the role it holds. Start with the officer to see one person end to end, then
+            open the administrator to see the same evidence aggregated across the workforce.
+          </p>
+          <div className="mt-4">
+            <DemoAccess />
+          </div>
+        </section>
+
         {/* ---------------------------------------------------- services -- */}
         <section id="services" aria-labelledby="services-h" className="scroll-mt-4">
           <h2 id="services-h" className="border-b border-rule pb-2 text-[19px] font-semibold text-ink">
@@ -225,6 +311,88 @@ export function Landing() {
               </li>
             ))}
           </ol>
+          <figure className="mt-6 rounded border border-rule bg-surface p-4">
+            <figcaption className="text-[15px] font-semibold text-ink">System architecture</figcaption>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">
+              Every assessment, interview, uploaded document and supervisor rating is appended to one evidence
+              record per officer. Competency levels, gaps and readiness are derived from that record, a
+              recommender ranks iGOT Karmayogi courses against the gaps, and a completed course feeds back as
+              new evidence. Nothing writes a level directly. Government services are reached through pluggable
+              adapters: Bhashini for Indian-language speech and translation, iGOT Karmayogi for the course
+              catalogue, Parichay for single sign-on, and API Setu for verifying a claimed certificate.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <img
+                src="/architecture.svg"
+                alt="SANKHYA architecture: users and the React portal on the left, the FastAPI service with evidence sources, the append-only evidence record, derived competency profile, gap analysis and recommender in the middle, and PostgreSQL, Redis, the speech worker, the LLM judge and the iGOT adapter on the right."
+                className="min-w-[960px] w-full"
+                width={1600}
+                height={900}
+              />
+            </div>
+          </figure>
+        </section>
+
+        {/* -------------------------------------------- reference material -- */}
+        <section id="material" aria-labelledby="material-h" className="scroll-mt-4">
+          <h2 id="material-h" className="border-b border-rule pb-2 text-[19px] font-semibold text-ink">
+            Reference material
+          </h2>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded border border-rule bg-surface p-5">
+              <h3 className="text-[15.5px] font-semibold text-ink">Material the portal learns from</h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">
+                A department already owns the material an assessment should be built from. Upload it and the
+                questions come back written, cited and ready for review, so nobody writes a question bank by hand.
+              </p>
+              <ol className="mt-3 space-y-2.5">
+                {MATERIAL_STEPS.map((s, i) => (
+                  <li key={s.title} className="flex gap-2.5">
+                    <span className="tabular mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
+                      {i + 1}
+                    </span>
+                    <p className="text-[13.5px] leading-snug text-ink-2">
+                      <span className="font-semibold text-ink">{s.title}</span> {s.body}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-3 border-t border-rule pt-3 text-[13px] leading-relaxed text-ink-2">
+                Subject experts upload and review from the{" "}
+                <span className="font-semibold text-ink">Review queue</span> inside the portal. Open the
+                demonstration as a subject expert above to see a generated question beside the passage it came from.
+              </p>
+            </div>
+
+            <div className="rounded border border-rule bg-surface p-5">
+              <h3 className="text-[15.5px] font-semibold text-ink">Standards and sources it is built on</h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">
+                Nothing here is invented. Roles, competencies, courses and accessibility rules come from published
+                government material, and the measurement model comes from the literature on adaptive testing.
+              </p>
+              <ul className="mt-3 divide-y divide-rule border-t border-rule">
+                {REFERENCES.map((r) => (
+                  <li key={r.name} className="py-2.5">
+                    <p className="text-[13.5px] leading-snug text-ink-2">
+                      {r.href ? (
+                        <a
+                          href={r.href}
+                          className="font-semibold text-accent underline underline-offset-2 hover:text-accent-strong"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          {r.name}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-ink">{r.name}</span>
+                      )}{" "}
+                      {r.body}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </section>
 
         {/* ------------------------------------------------------- roles -- */}
