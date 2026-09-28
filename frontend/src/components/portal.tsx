@@ -199,6 +199,12 @@ const ICON_PATHS: Record<string, ReactNode> = {
       <path d="m8 9 1.5 1.5L12 8M8 15l1.5 1.5L12 14M14 9.5h3M14 15.5h3" />
     </>
   ),
+  simulation: (
+    <>
+      <path d="M12 3 4 7v5c0 4.4 3.2 8.2 8 9 4.8-.8 8-4.6 8-9V7l-8-4Z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
   interview: (
     <>
       <rect x="9" y="3" width="6" height="11" rx="3" />

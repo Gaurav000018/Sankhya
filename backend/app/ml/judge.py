@@ -276,14 +276,22 @@ class OllamaJudge:
         self.model = model or settings.judge_model
         self.timeout = timeout
 
-    def _generate(self, prompt: str) -> str:
+    def complete(self, system: str, prompt: str, max_tokens: int = 700) -> str:
+        """Raw JSON completion against a caller-supplied rubric.
+
+        Split out from `_generate` so a second rubric — the role simulation,
+        which scores five axes rather than three — can reuse the transport
+        without reimplementing it. Only the system prompt differs; temperature,
+        seed and JSON mode are properties of *how we ask*, not of what we ask,
+        and both rubrics need them identical for the same reason.
+        """
         body = json.dumps({
             "model": self.model,
-            "system": SYSTEM_PROMPT,
+            "system": system,
             "prompt": prompt,
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0, "seed": 26101, "num_predict": 700},
+            "options": {"temperature": 0, "seed": 26101, "num_predict": max_tokens},
         }).encode()
 
         req = urllib.request.Request(
@@ -292,6 +300,9 @@ class OllamaJudge:
         )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.loads(resp.read()).get("response", "")
+
+    def _generate(self, prompt: str) -> str:
+        return self.complete(SYSTEM_PROMPT, prompt)
 
     def score(self, question: str, expected_points: list[str], transcript: str) -> Verdict:
         if not (transcript or "").strip():
@@ -374,7 +385,8 @@ class GeminiJudge:
     def is_available(self) -> bool:
         return bool(self.api_key)
 
-    def _generate(self, prompt: str) -> str:
+    def complete(self, system: str, prompt: str, max_tokens: int = 900) -> str:
+        """See `OllamaJudge.complete` — same contract, different transport."""
         import httpx
 
         response = httpx.post(
@@ -383,7 +395,7 @@ class GeminiJudge:
             # proxy logs and crash reports.
             headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
             json={
-                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "system_instruction": {"parts": [{"text": system}]},
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     # Deterministic: the same answer must score the same on a
@@ -391,7 +403,7 @@ class GeminiJudge:
                     # to appeal against.
                     "temperature": 0,
                     "responseMimeType": "application/json",
-                    "maxOutputTokens": 900,
+                    "maxOutputTokens": max_tokens,
                 },
             },
             timeout=self.timeout,
@@ -406,6 +418,9 @@ class GeminiJudge:
         parts = candidates[0].get("content", {}).get("parts") or []
         return "".join(part.get("text", "") for part in parts)
 
+    def _generate(self, prompt: str) -> str:
+        return self.complete(SYSTEM_PROMPT, prompt)
+
     def score(self, question: str, expected_points: list[str], transcript: str) -> Verdict:
         if not (transcript or "").strip():
             return degraded_verdict("No transcript to assess", self.model_name)
@@ -418,7 +433,22 @@ class GeminiJudge:
                 "The scoring model could not be reached", self.model_name
             )
 
-        return parse_verdict(raw, expected_points, self.model_name)
+        # Positionally: (raw, model_name, expected_points). Getting these the
+        # wrong way round is silent — coverage reconciles against the characters
+        # of the model name and every claim is dropped, while `model_name`
+        # becomes a list — so it is worth naming them here.
+        verdict = parse_verdict(raw, model_name=self.model_name,
+                                expected_points=expected_points)
+        if verdict is None:
+            # Same contract as the local judge: output we could not parse
+            # degrades to an explicit "could not score". Callers read
+            # `.degraded` off the result and would meet None with an
+            # AttributeError in the middle of scoring an officer's answer.
+            log.warning("Gemini judge returned unparseable output")
+            return degraded_verdict(
+                "The model did not return a usable assessment", self.model_name
+            )
+        return verdict
 
 
 class StubJudge:

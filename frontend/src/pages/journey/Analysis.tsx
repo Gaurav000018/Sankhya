@@ -96,6 +96,18 @@ export function AnalysisStep({ journey }: { journey: JourneyOut }) {
           />
         </div>
 
+        {/* Rendered only when there is something to show. An empty panel reads
+            as "you scored nothing", which is the opposite of "not measured". */}
+        {journey.simulation.length > 0 && (
+          <div className="mt-3.5">
+            <SignalTable
+              title="What the role simulation found"
+              hint="A decision under constraint — knowledge and reasoning only"
+              rows={journey.simulation}
+            />
+          </div>
+        )}
+
         {journey.divergences.length > 0 && (
           <div className="mt-4 space-y-3">
             <div className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-brass">

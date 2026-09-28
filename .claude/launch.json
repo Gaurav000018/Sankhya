@@ -4,9 +4,16 @@
     {
       "name": "sankhya-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3100",
+        "--strictPort"
+      ],
       "cwd": "frontend",
-      "port": 3000
+      "port": 3100
     }
   ]
 }

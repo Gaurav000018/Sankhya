@@ -21,6 +21,7 @@ from app import (  # noqa: F401
     models_interview,
     models_learning,
     models_quiz,
+    models_simulation,
 )
 
 # Tables that live next to the code that owns them rather than in a models_*

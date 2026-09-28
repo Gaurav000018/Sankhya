@@ -16,6 +16,7 @@ from app.api import (
     learning,
     onboarding,
     quiz,
+    simulation,
 )
 from app.config import _require_production_settings, production_warnings, settings
 from app.db import init_db
@@ -92,6 +93,7 @@ app.include_router(content.router)
 app.include_router(analytics.router)
 app.include_router(learning.router)
 app.include_router(quiz.router)
+app.include_router(simulation.router)
 app.include_router(onboarding.router)
 app.include_router(admin.router)
 

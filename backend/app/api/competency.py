@@ -152,13 +152,15 @@ def my_journey(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> dict:
-    """Assessment and interview together, with a roadmap to the next role.
+    """Assessment, interview and role simulation together, with a roadmap.
 
     Composed from evidence that already exists rather than computed afresh, so
-    the numbers here are the same ones the dashboard shows. Where the two
-    methods disagree the disagreement is reported, not averaged — a quiz score
-    of L4 and an interview score of L2 on one competency says something a mean
-    would erase.
+    the numbers here are the same ones the dashboard shows. Where two methods
+    disagree the disagreement is reported, not averaged — a quiz score of L4 and
+    an interview score of L2 on one competency says something a mean would
+    erase. The three are kept apart for the same reason: they ask what an
+    officer recognises, what they can explain, and what they would do, and those
+    are not interchangeable.
     """
     journey = build_journey(db, user=user, target_role_id=target_role_id)
     return asdict(journey)

@@ -68,10 +68,10 @@ export function useAuth(): AuthState {
 /** What each role is allowed to open. Mirrors the API's RBAC — the server is
  *  still the authority; this only keeps people out of screens that would fail. */
 export const ROLE_ROUTES: Record<string, string[]> = {
-  learner: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/interview", "/settings"],
-  supervisor: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/officers", "/interview", "/settings"],
-  sme: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/review", "/interview", "/settings"],
-  admin: ["/dashboard", "/journey", "/quiz", "/learning", "/promotion", "/team", "/officers", "/review", "/admin", "/acbp", "/interview", "/settings"],
+  learner: ["/dashboard", "/journey", "/quiz", "/simulation", "/learning", "/promotion", "/interview", "/settings"],
+  supervisor: ["/dashboard", "/journey", "/quiz", "/simulation", "/learning", "/promotion", "/team", "/officers", "/interview", "/settings"],
+  sme: ["/dashboard", "/journey", "/quiz", "/simulation", "/learning", "/promotion", "/review", "/interview", "/settings"],
+  admin: ["/dashboard", "/journey", "/quiz", "/simulation", "/learning", "/promotion", "/team", "/officers", "/review", "/admin", "/acbp", "/interview", "/settings"],
 };
 
 export function canAccess(role: string | undefined, path: string): boolean {

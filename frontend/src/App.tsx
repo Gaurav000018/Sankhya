@@ -19,6 +19,7 @@ import { Register } from "./pages/Register";
 import { ResetPassword } from "./pages/ResetPassword";
 import { VerifyEmail } from "./pages/VerifyEmail";
 import { Quiz } from "./pages/Quiz";
+import { Simulation } from "./pages/Simulation";
 import { Settings } from "./pages/Settings";
 import { ReviewQueue } from "./pages/ReviewQueue";
 import { TeamDashboard } from "./pages/TeamDashboard";
@@ -163,6 +164,14 @@ export function App() {
         element={
           <Protected path="/quiz">
             <Quiz />
+          </Protected>
+        }
+      />
+      <Route
+        path="/simulation"
+        element={
+          <Protected path="/simulation">
+            <Simulation />
           </Protected>
         }
       />

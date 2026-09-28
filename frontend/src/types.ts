@@ -486,6 +486,9 @@ export interface RoadmapStep {
 export interface JourneyOut {
   assessment: JourneySignal[];
   interview: JourneySignal[];
+  /** Kept apart from the other two: the three methods ask what an officer
+   *  recognises, what they can explain, and what they would do. */
+  simulation: JourneySignal[];
   divergences: JourneyDivergence[];
   roadmap: RoadmapStep[];
   narrative: string[];
